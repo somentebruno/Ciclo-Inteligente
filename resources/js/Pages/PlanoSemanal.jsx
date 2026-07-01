@@ -1,3 +1,4 @@
+import { Link } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 
 const dias = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
@@ -19,12 +20,12 @@ export default function PlanoSemanal() {
                 <p className="text-sm text-slate-500">
                     Distribuição semanal gerada a partir dos pesos das disciplinas.
                 </p>
-                <button
-                    type="button"
+                <Link
+                    href="/onboarding"
                     className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
                 >
                     Gerar novo ciclo
-                </button>
+                </Link>
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-7">
