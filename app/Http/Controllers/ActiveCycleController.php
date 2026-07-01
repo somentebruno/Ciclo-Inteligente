@@ -2,19 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Concerns\ResolvesCurrentUser;
 use App\Models\StudyCycle;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 class ActiveCycleController extends Controller
 {
+    use ResolvesCurrentUser;
+
     /**
      * Update the active cycle in the session.
      */
     public function update(Request $request, StudyCycle $cycle): RedirectResponse
     {
         // Ensure the cycle belongs to the user
-        abort_unless($cycle->user_id === $request->user()->id, 403);
+        $user = $this->currentUser($request);
+        abort_unless($cycle->user_id === $user->id, 403);
 
         $request->session()->put('active_cycle_id', $cycle->id);
 
