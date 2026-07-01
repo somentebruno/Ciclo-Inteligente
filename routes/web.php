@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\PlanController;
 use App\Http\Controllers\PlannerController;
 use App\Http\Controllers\TaskController;
 use Illuminate\Support\Facades\Route;
@@ -36,4 +37,7 @@ Route::post('/tarefas/{task}/concluir', [TaskController::class, 'complete'])->na
 
 Route::get('/revisoes', [PlannerController::class, 'revisoes'])->name('revisoes');
 Route::get('/plano-semanal', [PlannerController::class, 'plano'])->name('plano-semanal');
+
+Route::get('/planos', [PlanController::class, 'index'])->name('planos');
+Route::get('/planos/novo', [PlanController::class, 'create'])->name('planos.create');
 Route::get('/desempenho', fn () => Inertia::render('Desempenho'))->name('desempenho');

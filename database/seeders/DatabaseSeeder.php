@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Cargo;
 use App\Models\Course;
 use App\Models\StudyCycle;
 use App\Models\Subject;
@@ -30,6 +31,17 @@ class DatabaseSeeder extends Seeder
                 'is_active' => true,
             ]
         );
+        $course->forceFill(['orgao' => 'Tribunais Regionais'])->save();
+
+        foreach ([
+            ['name' => 'Analista Judiciário — Área Judiciária', 'code' => 'AJAJ'],
+            ['name' => 'Técnico Judiciário — Área Administrativa', 'code' => 'TJAA'],
+        ] as $cargo) {
+            Cargo::firstOrCreate(
+                ['course_id' => $course->id, 'name' => $cargo['name']],
+                ['code' => $cargo['code']]
+            );
+        }
 
         $subjects = [
             ['name' => 'Português', 'weight' => 8, 'difficulty' => 3, 'color' => '#3577fb'],
