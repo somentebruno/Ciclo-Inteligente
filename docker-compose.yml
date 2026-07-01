@@ -8,8 +8,15 @@ services:
     container_name: ciclo_app
     restart: unless-stopped
     working_dir: /var/www/html
+    environment:
+      # Composer extracts many small files; disable the process timeout so slow
+      # I/O never aborts an install.
+      COMPOSER_PROCESS_TIMEOUT: "0"
     volumes:
       - ./:/var/www/html:cached
+      # Keep vendor/ on a Linux-native named volume (not the Windows bind mount)
+      # for speed and to avoid rename/delete failures under WSL2.
+      - vendor:/var/www/html/vendor
       - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini:ro
     depends_on:
       db:
@@ -63,6 +70,8 @@ services:
       - "${VITE_PORT:-5173}:5173"
     volumes:
       - ./:/var/www/html:cached
+      # node_modules on a Linux-native named volume (same reason as vendor).
+      - node_modules:/var/www/html/node_modules
     networks:
       - ciclo
 
@@ -72,4 +81,8 @@ networks:
 
 volumes:
   dbdata:
+    driver: local
+  vendor:
+    driver: local
+  node_modules:
     driver: local

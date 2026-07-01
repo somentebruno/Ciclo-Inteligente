@@ -7,7 +7,7 @@ Plataforma educacional que transforma o conteúdo de cursos preparatórios em um
 
 | Camada           | Tecnologia                                   |
 | ---------------- | -------------------------------------------- |
-| Backend          | Laravel 11 (PHP 8.3)                          |
+| Backend          | Laravel 12 (PHP 8.3)                          |
 | Frontend         | React 18 + Tailwind CSS via **Inertia.js**   |
 | Banco de dados   | PostgreSQL 16                                 |
 | Servidor web     | Nginx                                         |
