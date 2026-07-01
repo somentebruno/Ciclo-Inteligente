@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call(IbgeCensoSeeder::class);
+        $this->call(IbgeAnalistaTiSeeder::class);
 
         $user = User::firstOrCreate(
             ['email' => 'aluno@ciclointeligente.test'],
