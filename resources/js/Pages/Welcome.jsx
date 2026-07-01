@@ -22,7 +22,7 @@ export default function Welcome({ laravelVersion }) {
 
                     <div className="mt-8 flex items-center justify-center gap-4">
                         <Link
-                            href="/dashboard"
+                            href="/metas-do-dia"
                             className="rounded-lg bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
                         >
                             Acessar o painel
