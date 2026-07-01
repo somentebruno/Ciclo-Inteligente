@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\StudyCycle;
 use App\Models\StudyTask;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 
 /**
  * Turns a study cycle into a concrete queue of scheduled tasks (StudyTask) for
@@ -68,7 +69,7 @@ class TaskSchedulerService
                 'study_cycle_id' => $cycle->id,
                 'subject_id' => $item['subject']->id,
                 'topic_id' => $item['topic']->id,
-                'title' => $item['topic']->name,
+                'title' => Str::limit($item['topic']->name, 250),
                 'type' => StudyTask::TYPE_THEORY,
                 'format' => $item['subject']->pivot->format ?? 'pdf',
                 'planned_minutes' => CycleGeneratorService::MINUTES_PER_TASK,
@@ -87,7 +88,7 @@ class TaskSchedulerService
                 'study_cycle_id' => $cycle->id,
                 'subject_id' => $topic->subject_id,
                 'topic_id' => $topic->id,
-                'title' => $topic->name,
+                'title' => Str::limit($topic->name, 250),
                 'type' => StudyTask::TYPE_REVIEW,
                 'format' => $subject?->pivot->format ?? 'pdf',
                 'planned_minutes' => 45,
