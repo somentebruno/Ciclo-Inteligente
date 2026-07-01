@@ -2,11 +2,14 @@
 
 namespace App\Http\Middleware;
 
+use App\Concerns\ResolvesCurrentUser;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
+    use ResolvesCurrentUser;
+
     /**
      * The root template loaded on the first page visit.
      */
@@ -27,7 +30,7 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        $user = $request->user();
+        $user = $this->currentUser($request);
         $cycles = [];
         $activeCycle = null;
 
