@@ -64,9 +64,7 @@ class OnboardingController extends Controller
             'preselectedCourseId' => $request->integer('course') ?: null,
             // If the student already has a plan, the wizard blocks and asks them
             // to delete it first before a new one can be created.
-            'existingPlan' => StudyCycle::where('user_id', $user->id)
-                ->orderByDesc('id')
-                ->first(['id', 'name']),
+            'existingPlan' => $user->currentPlan()?->only('id', 'name'),
         ]);
     }
 
@@ -91,7 +89,7 @@ class OnboardingController extends Controller
 
         // A student may only have one plan at a time. To create a new one they
         // must explicitly delete the current plan first (see PlanController@destroy).
-        if (StudyCycle::where('user_id', $user->id)->exists()) {
+        if ($user->currentPlan()) {
             return back()->with(
                 'error',
                 'Você já possui um plano. Apague o plano atual antes de criar um novo.'

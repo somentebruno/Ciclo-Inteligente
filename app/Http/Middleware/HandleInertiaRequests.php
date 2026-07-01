@@ -31,26 +31,9 @@ class HandleInertiaRequests extends Middleware
     public function share(Request $request): array
     {
         $user = $this->currentUser($request);
-        $cycles = [];
-        $activeCycle = null;
 
-        if ($user) {
-            $cycles = \App\Models\StudyCycle::where('user_id', $user->id)
-                        ->select('id', 'name')
-                        ->get();
-
-            $activeCycleId = $request->session()->get('active_cycle_id');
-            
-            // If there's no active cycle in session but the user has cycles, pick the latest one
-            if (! $activeCycleId && $cycles->isNotEmpty()) {
-                $activeCycleId = $cycles->last()->id;
-                $request->session()->put('active_cycle_id', $activeCycleId);
-            }
-
-            if ($activeCycleId) {
-                $activeCycle = $cycles->firstWhere('id', $activeCycleId) ?? $cycles->last();
-            }
-        }
+        // Single source of truth: the user's one and only plan (or null).
+        $plan = $user?->currentPlan();
 
         return [
             ...parent::share($request),
@@ -60,10 +43,7 @@ class HandleInertiaRequests extends Middleware
                     ? $user->only('id', 'name', 'email')
                     : null,
             ],
-            'globalPlans' => [
-                'cycles' => $cycles,
-                'activeCycle' => $activeCycle,
-            ],
+            'currentPlan' => $plan ? $plan->only('id', 'name') : null,
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),

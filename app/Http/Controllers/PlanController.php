@@ -47,15 +47,10 @@ class PlanController extends Controller
             ])
             ->values();
 
-        $user = $this->currentUser($request);
-
+        // The student's current plan is shared globally (see HandleInertiaRequests),
+        // so the page reads it from there.
         return Inertia::render('Planos/Index', [
             'plans' => $plans,
-            // The student's current plan (if any). A new plan can only be created
-            // after deleting this one.
-            'currentPlan' => StudyCycle::where('user_id', $user->id)
-                ->orderByDesc('id')
-                ->first(['id', 'name']),
         ]);
     }
 
@@ -81,11 +76,6 @@ class PlanController extends Controller
         $user = $this->currentUser($request);
 
         abort_unless($cycle->user_id === $user->id, 403);
-
-        // If this was the active cycle, drop the selection so shared props reset.
-        if ((int) $request->session()->get('active_cycle_id') === $cycle->id) {
-            $request->session()->forget('active_cycle_id');
-        }
 
         $cycle->delete();
 

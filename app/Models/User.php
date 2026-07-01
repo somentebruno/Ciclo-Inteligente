@@ -51,6 +51,16 @@ class User extends Authenticatable
     }
 
     /**
+     * The student's single study plan (cycle). The app enforces one plan per
+     * user, so this is THE source of truth for "the current plan" everywhere
+     * (home, tasks, reviews, weekly plan, plans page).
+     */
+    public function currentPlan(): ?StudyCycle
+    {
+        return $this->studyCycles()->latest('id')->first();
+    }
+
+    /**
      * Study sessions logged by this user.
      *
      * @return HasMany<StudySession>

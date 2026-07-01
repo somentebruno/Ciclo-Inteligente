@@ -114,13 +114,7 @@ function Sidebar({ currentUrl, onNavigate }) {
 export default function AppLayout({ title, children }) {
     const { url, props } = usePage();
     const [mobileOpen, setMobileOpen] = useState(false);
-    const { globalPlans, auth } = props;
-
-    const handleCycleChange = (e) => {
-        const cycleId = e.target.value;
-        if (!cycleId) return;
-        router.post(`/cycles/active/${cycleId}`, {}, { preserveScroll: true });
-    };
+    const { currentPlan, auth } = props;
 
     return (
         <div className="min-h-screen bg-slate-50">
@@ -161,21 +155,21 @@ export default function AppLayout({ title, children }) {
                     ) : null}
 
                     <div className="ml-auto flex items-center gap-3">
-                        <select
-                            value={globalPlans?.activeCycle?.id || ''}
-                            onChange={handleCycleChange}
-                            className="block w-full max-w-xs rounded-md border-0 py-1.5 pl-3 pr-10 text-slate-900 ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-brand-600 sm:text-sm sm:leading-6"
-                        >
-                            {globalPlans?.cycles?.length > 0 ? (
-                                globalPlans.cycles.map(cycle => (
-                                    <option key={cycle.id} value={cycle.id}>
-                                        {cycle.name}
-                                    </option>
-                                ))
-                            ) : (
-                                <option value="">Nenhum plano disponível</option>
-                            )}
-                        </select>
+                        {currentPlan ? (
+                            <span
+                                title={currentPlan.name}
+                                className="hidden max-w-xs truncate rounded-md bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 sm:inline"
+                            >
+                                {currentPlan.name}
+                            </span>
+                        ) : (
+                            <Link
+                                href="/planos"
+                                className="hidden rounded-md px-3 py-1.5 text-sm font-medium text-brand-700 hover:bg-brand-50 sm:inline"
+                            >
+                                Criar um plano
+                            </Link>
+                        )}
 
                         {auth?.user && (
                             <div className="flex items-center gap-2 border-l border-slate-200 pl-3">

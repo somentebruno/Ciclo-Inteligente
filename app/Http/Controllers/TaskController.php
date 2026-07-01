@@ -22,11 +22,11 @@ class TaskController extends Controller
     {
         $user = $this->currentUser($request);
 
-        $activeCycleId = $request->session()->get('active_cycle_id');
+        $planId = $user->currentPlan()?->id;
 
         $tasks = StudyTask::query()
             ->where('user_id', $user->id)
-            ->when($activeCycleId, fn ($q) => $q->where('study_cycle_id', $activeCycleId))
+            ->when($planId, fn ($q) => $q->where('study_cycle_id', $planId))
             ->with('subject:id,name,color')
             ->orderBy('scheduled_for')
             ->orderBy('position')

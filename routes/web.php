@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\ActiveCycleController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PlanController;
 use App\Http\Controllers\PlannerController;
@@ -23,8 +22,6 @@ Route::get('/', function () {
 Route::middleware('auth')->group(function () {
     Route::get('/home', fn () => Inertia::render('Home'))->name('home');
     Route::redirect('/dashboard', '/home')->name('dashboard');
-
-    Route::post('/cycles/active/{cycle}', [ActiveCycleController::class, 'update'])->name('cycles.active');
 
     // Onboarding — montagem do plano (6 etapas)
     Route::get('/onboarding', [OnboardingController::class, 'index'])->name('onboarding');
