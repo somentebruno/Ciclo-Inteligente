@@ -23,8 +23,11 @@ class PlannerController extends Controller
         $user = $this->currentUser($request);
         $today = Carbon::today();
 
+        $activeCycleId = $request->session()->get('active_cycle_id');
+
         $tasks = StudyTask::query()
             ->where('user_id', $user->id)
+            ->when($activeCycleId, fn ($q) => $q->where('study_cycle_id', $activeCycleId))
             ->whereDate('scheduled_for', $today)
             ->with('subject:id,name,color')
             ->orderBy('position')
@@ -40,7 +43,7 @@ class PlannerController extends Controller
                 'done' => $t->status === 'done',
                 'subject' => $t->subject?->only('id', 'name', 'color'),
             ])->values(),
-            'cycle' => $this->cycleSummary($user->id),
+            'cycle' => $this->cycleSummary($user->id, $activeCycleId),
         ]);
     }
 
@@ -52,8 +55,11 @@ class PlannerController extends Controller
         $user = $this->currentUser($request);
         $today = Carbon::today();
 
+        $activeCycleId = $request->session()->get('active_cycle_id');
+
         $reviews = StudyTask::query()
             ->where('user_id', $user->id)
+            ->when($activeCycleId, fn ($q) => $q->where('study_cycle_id', $activeCycleId))
             ->where('type', StudyTask::TYPE_REVIEW)
             ->with('subject:id,name,color')
             ->orderBy('scheduled_for')
@@ -91,8 +97,11 @@ class PlannerController extends Controller
         $user = $this->currentUser($request);
         $today = Carbon::today();
 
+        $activeCycleId = $request->session()->get('active_cycle_id');
+
         $tasks = StudyTask::query()
             ->where('user_id', $user->id)
+            ->when($activeCycleId, fn ($q) => $q->where('study_cycle_id', $activeCycleId))
             ->whereBetween('scheduled_for', [
                 $today->toDateString(),
                 $today->copy()->addDays(6)->toDateString(),
@@ -125,18 +134,18 @@ class PlannerController extends Controller
 
         return Inertia::render('PlanoSemanal', [
             'days' => $days,
-            'cycle' => $this->cycleSummary($user->id),
+            'cycle' => $this->cycleSummary($user->id, $activeCycleId),
         ]);
     }
 
     /**
      * @return array<string, mixed>|null
      */
-    private function cycleSummary(int $userId): ?array
+    private function cycleSummary(int $userId, ?int $activeCycleId = null): ?array
     {
         $cycle = StudyCycle::query()
             ->where('user_id', $userId)
-            ->where('status', 'active')
+            ->when($activeCycleId, fn ($q) => $q->where('id', $activeCycleId))
             ->latest('id')
             ->first();
 

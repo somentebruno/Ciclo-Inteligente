@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ActiveCycleController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PlanController;
@@ -12,9 +13,12 @@ Route::get('/', function () {
     return Inertia::render('Welcome', [
         'laravelVersion' => app()->version(),
     ]);
-})->name('home');
+})->name('welcome');
 
-Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+Route::get('/home', fn () => Inertia::render('Home'))->name('home');
+Route::redirect('/dashboard', '/home')->name('dashboard');
+
+Route::post('/cycles/active/{cycle}', [ActiveCycleController::class, 'update'])->name('cycles.active');
 
 /*
 |--------------------------------------------------------------------------

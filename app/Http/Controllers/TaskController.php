@@ -22,8 +22,11 @@ class TaskController extends Controller
     {
         $user = $this->currentUser($request);
 
+        $activeCycleId = $request->session()->get('active_cycle_id');
+
         $tasks = StudyTask::query()
             ->where('user_id', $user->id)
+            ->when($activeCycleId, fn ($q) => $q->where('study_cycle_id', $activeCycleId))
             ->with('subject:id,name,color')
             ->orderBy('scheduled_for')
             ->orderBy('position')
@@ -127,6 +130,7 @@ class TaskController extends Controller
         // Advance to the next pending task, if any.
         $next = StudyTask::query()
             ->where('user_id', $task->user_id)
+            ->where('study_cycle_id', $task->study_cycle_id)
             ->where('status', 'pending')
             ->orderBy('scheduled_for')
             ->orderBy('position')

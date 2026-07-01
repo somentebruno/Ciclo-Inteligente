@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, usePage, router } from '@inertiajs/react';
 
 /* --- Inline icons (heroicons-style) ------------------------------------- */
 const iconProps = {
@@ -9,6 +9,12 @@ const iconProps = {
     stroke: 'currentColor',
     className: 'h-5 w-5 shrink-0',
 };
+
+const HomeIcon = () => (
+    <svg {...iconProps}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.592 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+    </svg>
+);
 
 const TargetIcon = () => (
     <svg {...iconProps}>
@@ -54,6 +60,7 @@ const CloseIcon = () => (
 
 /* --- Sidebar navigation ------------------------------------------------- */
 const navigation = [
+    { name: 'Home', href: '/home', icon: HomeIcon },
     { name: 'Metas do dia', href: '/metas-do-dia', icon: TargetIcon },
     { name: 'Tarefas', href: '/tarefas', icon: TasksIcon },
     { name: 'Revisões', href: '/revisoes', icon: ReviewIcon },
@@ -105,8 +112,15 @@ function Sidebar({ currentUrl, onNavigate }) {
 
 /* --- Main layout -------------------------------------------------------- */
 export default function AppLayout({ title, children }) {
-    const { url } = usePage();
+    const { url, props } = usePage();
     const [mobileOpen, setMobileOpen] = useState(false);
+    const { globalPlans } = props;
+
+    const handleCycleChange = (e) => {
+        const cycleId = e.target.value;
+        if (!cycleId) return;
+        router.post(`/cycles/active/${cycleId}`, {}, { preserveScroll: true });
+    };
 
     return (
         <div className="min-h-screen bg-slate-50">
@@ -145,6 +159,22 @@ export default function AppLayout({ title, children }) {
                     {title ? (
                         <h1 className="text-lg font-semibold text-slate-900">{title}</h1>
                     ) : null}
+
+                    <div className="ml-auto flex items-center">
+                        {globalPlans && globalPlans.cycles && globalPlans.cycles.length > 0 && (
+                            <select
+                                value={globalPlans.activeCycle?.id || ''}
+                                onChange={handleCycleChange}
+                                className="block w-full max-w-xs rounded-md border-0 py-1.5 pl-3 pr-10 text-slate-900 ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-brand-600 sm:text-sm sm:leading-6"
+                            >
+                                {globalPlans.cycles.map(cycle => (
+                                    <option key={cycle.id} value={cycle.id}>
+                                        {cycle.name}
+                                    </option>
+                                ))}
+                            </select>
+                        )}
+                    </div>
                 </header>
 
                 <main className="px-4 py-6 sm:px-6 lg:px-8">{children}</main>

@@ -26,6 +26,7 @@ yarn-error.log
 # AI / assistant tooling — never commit
 /.claude
 .claude/
+.agents/
 *.pem
 *.key
 secrets.*
