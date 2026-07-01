@@ -17,10 +17,9 @@ class PlannerTest extends TestCase
 
     private function seedTasks(): void
     {
-        $user = User::firstOrCreate(
-            ['email' => 'aluno@ciclointeligente.test'],
-            ['name' => 'Aluno Demonstração', 'password' => 'password']
-        );
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
         $course = Course::create(['name' => 'C', 'slug' => 'c', 'is_active' => true]);
         $subject = Subject::create(['course_id' => $course->id, 'name' => 'Port', 'slug' => 'port', 'color' => '#3577fb']);
         $cycle = StudyCycle::create([

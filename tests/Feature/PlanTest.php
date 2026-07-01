@@ -6,6 +6,7 @@ use App\Models\Cargo;
 use App\Models\Course;
 use App\Models\Subject;
 use App\Models\Topic;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -13,6 +14,12 @@ use Tests\TestCase;
 class PlanTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->actingAs(User::factory()->create());
+    }
 
     public function test_plans_index_groups_cargos_by_orgao_with_counts(): void
     {

@@ -1,6 +1,8 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 
 export default function Welcome({ laravelVersion }) {
+    const { auth } = usePage().props;
+
     return (
         <>
             <Head title="Bem-vindo" />
@@ -21,18 +23,29 @@ export default function Welcome({ laravelVersion }) {
                     </p>
 
                     <div className="mt-8 flex items-center justify-center gap-4">
-                        <Link
-                            href="/onboarding"
-                            className="rounded-lg bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
-                        >
-                            Montar meu plano
-                        </Link>
-                        <Link
-                            href="/metas-do-dia"
-                            className="rounded-lg px-5 py-3 text-sm font-semibold text-slate-700 transition hover:text-brand-600"
-                        >
-                            Acessar o painel
-                        </Link>
+                        {auth?.user ? (
+                            <Link
+                                href="/home"
+                                className="rounded-lg bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
+                            >
+                                Acessar o painel
+                            </Link>
+                        ) : (
+                            <>
+                                <Link
+                                    href="/login"
+                                    className="rounded-lg bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
+                                >
+                                    Entrar
+                                </Link>
+                                <Link
+                                    href="/register"
+                                    className="rounded-lg px-5 py-3 text-sm font-semibold text-slate-700 transition hover:text-brand-600"
+                                >
+                                    Criar conta
+                                </Link>
+                            </>
+                        )}
                     </div>
 
                     <p className="mt-10 text-xs text-slate-400">

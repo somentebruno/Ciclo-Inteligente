@@ -6,16 +6,14 @@ use App\Models\User;
 use Illuminate\Http\Request;
 
 /**
- * Resolves the acting user. Falls back to the demo student while authentication
- * (Breeze) is not wired up yet.
+ * Resolves the currently authenticated user. App routes are behind the `auth`
+ * middleware, so within them this is guaranteed to be non-null; on shared props
+ * (guest pages) it may be null.
  */
 trait ResolvesCurrentUser
 {
-    protected function currentUser(Request $request): User
+    protected function currentUser(Request $request): ?User
     {
-        return $request->user() ?: User::firstOrCreate(
-            ['email' => 'aluno@ciclointeligente.test'],
-            ['name' => 'Aluno Demonstração', 'password' => 'password']
-        );
+        return $request->user();
     }
 }

@@ -17,11 +17,8 @@ class TaskTest extends TestCase
 
     private function makeTask(): StudyTask
     {
-        // The controller falls back to this demo user when unauthenticated.
-        $user = User::firstOrCreate(
-            ['email' => 'aluno@ciclointeligente.test'],
-            ['name' => 'Aluno Demonstração', 'password' => 'password']
-        );
+        $user = User::factory()->create();
+        $this->actingAs($user);
 
         $course = Course::create(['name' => 'C', 'slug' => 'c', 'is_active' => true]);
         $subject = Subject::create(['course_id' => $course->id, 'name' => 'Port', 'slug' => 'port']);
@@ -47,6 +44,7 @@ class TaskTest extends TestCase
 
     public function test_queue_page_renders(): void
     {
+        $this->actingAs(User::factory()->create());
         $this->get('/tarefas')->assertOk();
     }
 

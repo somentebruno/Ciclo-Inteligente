@@ -7,12 +7,19 @@ use App\Models\StudyCycle;
 use App\Models\StudyTask;
 use App\Models\Subject;
 use App\Models\Topic;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class OnboardingTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->actingAs(User::factory()->create());
+    }
 
     public function test_wizard_page_renders(): void
     {

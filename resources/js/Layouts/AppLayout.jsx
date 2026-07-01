@@ -114,7 +114,7 @@ function Sidebar({ currentUrl, onNavigate }) {
 export default function AppLayout({ title, children }) {
     const { url, props } = usePage();
     const [mobileOpen, setMobileOpen] = useState(false);
-    const { globalPlans } = props;
+    const { globalPlans, auth } = props;
 
     const handleCycleChange = (e) => {
         const cycleId = e.target.value;
@@ -160,7 +160,7 @@ export default function AppLayout({ title, children }) {
                         <h1 className="text-lg font-semibold text-slate-900">{title}</h1>
                     ) : null}
 
-                    <div className="ml-auto flex items-center">
+                    <div className="ml-auto flex items-center gap-3">
                         <select
                             value={globalPlans?.activeCycle?.id || ''}
                             onChange={handleCycleChange}
@@ -176,6 +176,24 @@ export default function AppLayout({ title, children }) {
                                 <option value="">Nenhum plano disponível</option>
                             )}
                         </select>
+
+                        {auth?.user && (
+                            <div className="flex items-center gap-2 border-l border-slate-200 pl-3">
+                                <Link
+                                    href="/profile"
+                                    className="hidden text-sm font-medium text-slate-700 hover:text-brand-600 sm:block"
+                                >
+                                    {auth.user.name}
+                                </Link>
+                                <button
+                                    type="button"
+                                    onClick={() => router.post('/logout')}
+                                    className="rounded-md px-2 py-1 text-sm font-medium text-slate-500 transition hover:bg-red-50 hover:text-red-600"
+                                >
+                                    Sair
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </header>
 
