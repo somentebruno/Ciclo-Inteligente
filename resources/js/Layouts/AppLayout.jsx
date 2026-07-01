@@ -161,19 +161,21 @@ export default function AppLayout({ title, children }) {
                     ) : null}
 
                     <div className="ml-auto flex items-center">
-                        {globalPlans && globalPlans.cycles && globalPlans.cycles.length > 0 && (
-                            <select
-                                value={globalPlans.activeCycle?.id || ''}
-                                onChange={handleCycleChange}
-                                className="block w-full max-w-xs rounded-md border-0 py-1.5 pl-3 pr-10 text-slate-900 ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-brand-600 sm:text-sm sm:leading-6"
-                            >
-                                {globalPlans.cycles.map(cycle => (
+                        <select
+                            value={globalPlans?.activeCycle?.id || ''}
+                            onChange={handleCycleChange}
+                            className="block w-full max-w-xs rounded-md border-0 py-1.5 pl-3 pr-10 text-slate-900 ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-brand-600 sm:text-sm sm:leading-6"
+                        >
+                            {globalPlans?.cycles?.length > 0 ? (
+                                globalPlans.cycles.map(cycle => (
                                     <option key={cycle.id} value={cycle.id}>
                                         {cycle.name}
                                     </option>
-                                ))}
-                            </select>
-                        )}
+                                ))
+                            ) : (
+                                <option value="">Nenhum plano disponível</option>
+                            )}
+                        </select>
                     </div>
                 </header>
 
