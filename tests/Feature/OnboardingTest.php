@@ -108,4 +108,33 @@ class OnboardingTest extends TestCase
     {
         $this->post('/onboarding', [])->assertSessionHasErrors(['course_id', 'weekly_tasks', 'subjects']);
     }
+
+    public function test_store_is_blocked_when_a_plan_already_exists(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $course = Course::create([
+            'name' => 'Concurso Teste', 'slug' => 'concurso-teste', 'is_active' => true,
+        ]);
+        $subject = Subject::create(['course_id' => $course->id, 'name' => 'Port', 'slug' => 'portugues']);
+
+        // Pre-existing plan for the same user.
+        StudyCycle::create([
+            'user_id' => $user->id, 'course_id' => $course->id, 'name' => 'Plano atual', 'weekly_tasks' => 7, 'status' => 'active',
+        ]);
+
+        $this->post('/onboarding', [
+            'course_id' => $course->id,
+            'weekly_tasks' => 14,
+            'daily_tasks' => 2,
+            'subjects' => [
+                ['subject_id' => $subject->id, 'difficulty' => 'medio', 'format' => 'pdf'],
+            ],
+            'studied_topics' => [],
+        ])->assertRedirect()->assertSessionHas('error');
+
+        // No second plan was created.
+        $this->assertSame(1, StudyCycle::where('user_id', $user->id)->count());
+    }
 }

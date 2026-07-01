@@ -57,9 +57,16 @@ class OnboardingController extends Controller
                 ];
             });
 
+        $user = $this->currentUser($request);
+
         return Inertia::render('Onboarding/Wizard', [
             'courses' => $courses,
             'preselectedCourseId' => $request->integer('course') ?: null,
+            // If the student already has a plan, the wizard blocks and asks them
+            // to delete it first before a new one can be created.
+            'existingPlan' => StudyCycle::where('user_id', $user->id)
+                ->orderByDesc('id')
+                ->first(['id', 'name']),
         ]);
     }
 
@@ -81,6 +88,16 @@ class OnboardingController extends Controller
         ]);
 
         $user = $this->currentUser($request);
+
+        // A student may only have one plan at a time. To create a new one they
+        // must explicitly delete the current plan first (see PlanController@destroy).
+        if (StudyCycle::where('user_id', $user->id)->exists()) {
+            return back()->with(
+                'error',
+                'Você já possui um plano. Apague o plano atual antes de criar um novo.'
+            );
+        }
+
         $course = Course::with('cargos:id,course_id,name,code')->findOrFail($data['course_id']);
 
         $cargo = $course->cargos->first();
@@ -89,13 +106,6 @@ class OnboardingController extends Controller
             : $course->name;
 
         DB::transaction(function () use ($data, $user, $course, $planLabel) {
-            // Only one active cycle per user/course; archive the previous ones.
-            StudyCycle::query()
-                ->where('user_id', $user->id)
-                ->where('course_id', $course->id)
-                ->where('status', 'active')
-                ->update(['status' => 'archived']);
-
             $cycle = StudyCycle::create([
                 'user_id' => $user->id,
                 'course_id' => $course->id,

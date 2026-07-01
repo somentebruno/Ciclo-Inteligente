@@ -42,6 +42,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/planos', [PlanController::class, 'index'])->name('planos');
     Route::get('/planos/novo', [PlanController::class, 'create'])->name('planos.create');
+    Route::delete('/planos/{cycle}', [PlanController::class, 'destroy'])->name('planos.destroy');
 
     Route::get('/desempenho', fn () => Inertia::render('Desempenho'))->name('desempenho');
 

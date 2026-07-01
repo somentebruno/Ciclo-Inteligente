@@ -85,7 +85,7 @@ function Pill({ selected, children, onClick }) {
 }
 
 /* --- Wizard ------------------------------------------------------------- */
-export default function Wizard({ courses = [], preselectedCourseId = null }) {
+export default function Wizard({ courses = [], preselectedCourseId = null, existingPlan = null }) {
     const [step, setStep] = useState(1);
     const [courseId, setCourseId] = useState(preselectedCourseId ?? null);
     const [pace, setPace] = useState(null); // número (por dia) | 'custom'
@@ -94,6 +94,18 @@ export default function Wizard({ courses = [], preselectedCourseId = null }) {
     const [studied, setStudied] = useState([]); // topic ids
     const [processing, setProcessing] = useState(false);
     const [errors, setErrors] = useState({});
+    const [confirmingDelete, setConfirmingDelete] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+
+    const deleteExistingPlan = () => {
+        if (!existingPlan) return;
+        setDeleting(true);
+        // On success the server redirects back here; the wizard reloads without
+        // an existing plan and the student can start fresh.
+        router.delete(`/planos/${existingPlan.id}`, {
+            onFinish: () => setDeleting(false),
+        });
+    };
 
     const course = useMemo(() => courses.find((c) => c.id === courseId) || null, [courses, courseId]);
     const subjects = course?.subjects ?? [];
@@ -142,6 +154,97 @@ export default function Wizard({ courses = [], preselectedCourseId = null }) {
 
     const next = () => setStep((s) => Math.min(STEPS.length, s + 1));
     const back = () => setStep((s) => Math.max(1, s - 1));
+
+    // If the student already has a plan, block the wizard and ask them to delete
+    // the current plan (with confirmation) before creating a new one.
+    if (existingPlan) {
+        return (
+            <div className="min-h-screen bg-slate-50 py-8">
+                <Head title="Montar meu plano" />
+
+                <div className="mx-auto max-w-3xl px-4">
+                    <div className="mb-6 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold text-white">
+                                CI
+                            </span>
+                            <span className="font-semibold text-slate-900">Montar meu plano</span>
+                        </div>
+                        <Link href="/planos" className="text-sm text-slate-400 hover:text-slate-600">
+                            Sair
+                        </Link>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+                        <div className="mx-auto max-w-md text-center">
+                            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-2xl">
+                                ⚠️
+                            </div>
+                            <h2 className="mt-4 text-lg font-semibold text-slate-900">
+                                Você já tem um plano
+                            </h2>
+                            <p className="mt-2 text-sm text-slate-500">
+                                Só é possível ter um plano por vez. Para montar um novo, apague o
+                                plano atual primeiro. As tarefas e revisões deste plano serão
+                                removidas.
+                            </p>
+
+                            <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-left">
+                                <p className="text-xs uppercase tracking-wide text-slate-400">
+                                    Plano atual
+                                </p>
+                                <p className="mt-0.5 font-medium text-slate-800">
+                                    {existingPlan.name}
+                                </p>
+                            </div>
+
+                            {!confirmingDelete ? (
+                                <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
+                                    <Link
+                                        href="/planos"
+                                        className="rounded-lg px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
+                                    >
+                                        Cancelar
+                                    </Link>
+                                    <button
+                                        type="button"
+                                        onClick={() => setConfirmingDelete(true)}
+                                        className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
+                                    >
+                                        Apagar plano atual
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4">
+                                    <p className="text-sm font-medium text-red-800">
+                                        Tem certeza? Esta ação não pode ser desfeita.
+                                    </p>
+                                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-center">
+                                        <button
+                                            type="button"
+                                            onClick={() => setConfirmingDelete(false)}
+                                            disabled={deleting}
+                                            className="rounded-lg px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-white"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={deleteExistingPlan}
+                                            disabled={deleting}
+                                            className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-60"
+                                        >
+                                            {deleting ? 'Apagando…' : 'Sim, apagar e continuar'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     const submit = () => {
         setProcessing(true);
