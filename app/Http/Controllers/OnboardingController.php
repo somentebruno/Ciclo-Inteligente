@@ -27,24 +27,35 @@ class OnboardingController extends Controller
         $courses = Course::query()
             ->where('is_active', true)
             ->with([
+                'cargos:id,course_id,name,code',
                 'subjects' => fn ($q) => $q->orderBy('name'),
                 'subjects.topics' => fn ($q) => $q->orderBy('order'),
             ])
             ->orderBy('name')
             ->get()
-            ->map(fn (Course $course) => [
-                'id' => $course->id,
-                'name' => $course->name,
-                'exam_board' => $course->exam_board,
-                'subjects' => $course->subjects->map(fn ($subject) => [
-                    'id' => $subject->id,
-                    'name' => $subject->name,
-                    'color' => $subject->color,
-                    'topics' => $subject->topics
-                        ->map(fn ($topic) => ['id' => $topic->id, 'name' => $topic->name])
-                        ->values(),
-                ])->values(),
-            ]);
+            ->map(function (Course $course) {
+                // Prefer the cargo name as the plan label (e.g. "Agente
+                // Censitário de Qualidade (ACQ)") over the internal course name.
+                $cargo = $course->cargos->first();
+                $label = $cargo
+                    ? $cargo->name.($cargo->code ? " ({$cargo->code})" : '')
+                    : $course->name;
+
+                return [
+                    'id' => $course->id,
+                    'label' => $label,
+                    'orgao' => $course->orgao,
+                    'name' => $course->name,
+                    'subjects' => $course->subjects->map(fn ($subject) => [
+                        'id' => $subject->id,
+                        'name' => $subject->name,
+                        'color' => $subject->color,
+                        'topics' => $subject->topics
+                            ->map(fn ($topic) => ['id' => $topic->id, 'name' => $topic->name])
+                            ->values(),
+                    ])->values(),
+                ];
+            });
 
         return Inertia::render('Onboarding/Wizard', [
             'courses' => $courses,
@@ -70,9 +81,14 @@ class OnboardingController extends Controller
         ]);
 
         $user = $this->currentUser($request);
-        $course = Course::findOrFail($data['course_id']);
+        $course = Course::with('cargos:id,course_id,name,code')->findOrFail($data['course_id']);
 
-        DB::transaction(function () use ($data, $user, $course) {
+        $cargo = $course->cargos->first();
+        $planLabel = $cargo
+            ? $cargo->name.($cargo->code ? " ({$cargo->code})" : '')
+            : $course->name;
+
+        DB::transaction(function () use ($data, $user, $course, $planLabel) {
             // Only one active cycle per user/course; archive the previous ones.
             StudyCycle::query()
                 ->where('user_id', $user->id)
@@ -83,7 +99,7 @@ class OnboardingController extends Controller
             $cycle = StudyCycle::create([
                 'user_id' => $user->id,
                 'course_id' => $course->id,
-                'name' => 'Plano — '.$course->name,
+                'name' => 'Plano — '.$planLabel,
                 'weekly_tasks' => $data['weekly_tasks'],
                 'daily_tasks' => $data['daily_tasks'] ?? null,
                 'weekly_hours' => (int) round($data['weekly_tasks'] * (CycleGeneratorService::MINUTES_PER_TASK / 60)),

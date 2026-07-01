@@ -217,9 +217,11 @@ export default function Wizard({ courses = [], preselectedCourseId = null }) {
                                             }
                                         >
                                             <div>
-                                                <p className="font-medium text-slate-900">{c.name}</p>
+                                                <p className="font-medium text-slate-900">
+                                                    {c.label ?? c.name}
+                                                </p>
                                                 <p className="text-sm text-slate-500">
-                                                    {c.exam_board ?? 'Banca não informada'} ·{' '}
+                                                    {c.orgao ?? 'Órgão não informado'} ·{' '}
                                                     {c.subjects.length} disciplinas
                                                 </p>
                                             </div>
@@ -332,7 +334,8 @@ export default function Wizard({ courses = [], preselectedCourseId = null }) {
                                     Disciplinas do concurso
                                 </h2>
                                 <p className="mt-1 text-sm text-slate-500">
-                                    Estas são as disciplinas de <strong>{course?.name}</strong>. Nos próximos
+                                    Estas são as disciplinas de{' '}
+                                    <strong>{course?.label ?? course?.name}</strong>. Nos próximos
                                     passos você define a dificuldade e o formato de cada uma.
                                 </p>
                                 <ul className="mt-5 space-y-2">
