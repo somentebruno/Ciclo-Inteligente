@@ -85,9 +85,9 @@ function Pill({ selected, children, onClick }) {
 }
 
 /* --- Wizard ------------------------------------------------------------- */
-export default function Wizard({ courses = [] }) {
+export default function Wizard({ courses = [], preselectedCourseId = null }) {
     const [step, setStep] = useState(1);
-    const [courseId, setCourseId] = useState(null);
+    const [courseId, setCourseId] = useState(preselectedCourseId ?? null);
     const [pace, setPace] = useState(null); // número (por dia) | 'custom'
     const [customWeekly, setCustomWeekly] = useState(7);
     const [config, setConfig] = useState({}); // { [subjectId]: { difficulty, format } }

@@ -14,23 +14,25 @@ class PlanTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_plans_index_lists_created_plans_with_counts(): void
+    public function test_plans_index_groups_cargos_by_orgao_with_counts(): void
     {
         $course = Course::create([
             'name' => 'Concurso X', 'orgao' => 'IBGE', 'slug' => 'x', 'is_active' => true,
         ]);
         $subject = Subject::create(['course_id' => $course->id, 'name' => 'Port', 'slug' => 'port']);
         Topic::create(['subject_id' => $subject->id, 'name' => 'Crase', 'order' => 0]);
-        Cargo::create(['course_id' => $course->id, 'name' => 'Agente (ACA)', 'code' => 'ACA']);
+        Cargo::create(['course_id' => $course->id, 'name' => 'Agente', 'code' => 'ACA']);
 
         $this->get('/planos')->assertOk()->assertInertia(
             fn (Assert $page) => $page
                 ->component('Planos/Index')
                 ->has('plans', 1)
                 ->where('plans.0.orgao', 'IBGE')
-                ->where('plans.0.subjects_count', 1)
-                ->where('plans.0.topics_count', 1)
+                ->where('plans.0.title', 'IBGE — Temporário 2026 (Pós-edital)')
                 ->has('plans.0.cargos', 1)
+                ->where('plans.0.cargos.0.subjects_count', 1)
+                ->where('plans.0.cargos.0.topics_count', 1)
+                ->where('plans.0.cargos.0.course_id', $course->id)
         );
     }
 

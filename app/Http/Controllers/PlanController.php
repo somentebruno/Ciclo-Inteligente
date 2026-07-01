@@ -8,29 +8,38 @@ use Inertia\Response;
 
 class PlanController extends Controller
 {
+    /** Título do card de catálogo por órgão. */
+    private const CATALOG_TITLES = [
+        'IBGE' => 'IBGE — Temporário 2026 (Pós-edital)',
+    ];
+
     /**
-     * List the plans (concursos) already created.
+     * Catalog of available plans, grouped by órgão. Each cargo carries the
+     * subject/topic counts of its concurso and can be opened to create a plan.
      */
     public function index(): Response
     {
-        $plans = Course::query()
-            ->withCount(['subjects', 'topics', 'cargos'])
+        $courses = Course::query()
+            ->withCount(['subjects', 'topics'])
             ->with('cargos:id,course_id,name,code')
             ->orderBy('name')
-            ->get()
-            ->map(fn (Course $course) => [
-                'id' => $course->id,
-                'name' => $course->name,
-                'orgao' => $course->orgao,
-                'exam_board' => $course->exam_board,
-                'subjects_count' => $course->subjects_count,
-                'topics_count' => $course->topics_count,
-                'cargos' => $course->cargos->map(fn ($cargo) => [
+            ->get();
+
+        $plans = $courses
+            ->groupBy(fn (Course $course) => $course->orgao ?? 'Outros')
+            ->map(fn ($group, $orgao) => [
+                'orgao' => $orgao,
+                'title' => self::CATALOG_TITLES[$orgao] ?? $orgao,
+                'cargos' => $group->flatMap(fn (Course $course) => $course->cargos->map(fn ($cargo) => [
                     'id' => $cargo->id,
+                    'course_id' => $course->id,
                     'name' => $cargo->name,
                     'code' => $cargo->code,
-                ])->values(),
-            ]);
+                    'subjects_count' => $course->subjects_count,
+                    'topics_count' => $course->topics_count,
+                ]))->values(),
+            ])
+            ->values();
 
         return Inertia::render('Planos/Index', [
             'plans' => $plans,

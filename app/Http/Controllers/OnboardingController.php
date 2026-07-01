@@ -22,7 +22,7 @@ class OnboardingController extends Controller
      * Render the 6-step onboarding wizard with the available courses and their
      * subjects/topics (needed by steps 3-6).
      */
-    public function index(): Response
+    public function index(Request $request): Response
     {
         $courses = Course::query()
             ->where('is_active', true)
@@ -48,6 +48,7 @@ class OnboardingController extends Controller
 
         return Inertia::render('Onboarding/Wizard', [
             'courses' => $courses,
+            'preselectedCourseId' => $request->integer('course') ?: null,
         ]);
     }
 
