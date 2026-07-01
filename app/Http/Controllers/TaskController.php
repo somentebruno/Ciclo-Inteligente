@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Concerns\ResolvesCurrentUser;
 use App\Models\StudySession;
 use App\Models\StudyTask;
-use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -13,6 +13,8 @@ use Inertia\Response;
 
 class TaskController extends Controller
 {
+    use ResolvesCurrentUser;
+
     /**
      * The task queue: 7-day overview + tabbed lists.
      */
@@ -163,13 +165,5 @@ class TaskController extends Controller
     private function authorizeTask(Request $request, StudyTask $task): void
     {
         abort_unless($task->user_id === $this->currentUser($request)->id, 403);
-    }
-
-    private function currentUser(Request $request): User
-    {
-        return $request->user() ?: User::firstOrCreate(
-            ['email' => 'aluno@ciclointeligente.test'],
-            ['name' => 'Aluno Demonstração', 'password' => 'password']
-        );
     }
 }

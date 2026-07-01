@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Concerns\ResolvesCurrentUser;
 use App\Models\Course;
 use App\Models\StudyCycle;
-use App\Models\User;
 use App\Services\CycleGeneratorService;
 use App\Services\TaskSchedulerService;
 use Illuminate\Http\RedirectResponse;
@@ -16,6 +16,8 @@ use Inertia\Response;
 
 class OnboardingController extends Controller
 {
+    use ResolvesCurrentUser;
+
     /**
      * Render the 6-step onboarding wizard with the available courses and their
      * subjects/topics (needed by steps 3-6).
@@ -113,17 +115,5 @@ class OnboardingController extends Controller
         return redirect()
             ->route('plano-semanal')
             ->with('success', 'Seu plano de estudos foi montado com sucesso!');
-    }
-
-    /**
-     * Resolve the acting user. Falls back to the demo student while auth
-     * (Breeze) is not wired up yet.
-     */
-    private function currentUser(Request $request): User
-    {
-        return $request->user() ?: User::firstOrCreate(
-            ['email' => 'aluno@ciclointeligente.test'],
-            ['name' => 'Aluno Demonstração', 'password' => 'password']
-        );
     }
 }
