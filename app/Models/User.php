@@ -51,13 +51,12 @@ class User extends Authenticatable
     }
 
     /**
-     * The student's single study plan (cycle). The app enforces one plan per
-     * user, so this is THE source of truth for "the current plan" everywhere
-     * (home, tasks, reviews, weekly plan, plans page).
+     * The user's existing plan for a given course/cargo, if any. The app allows
+     * one plan per cargo, so this is used to enforce that uniqueness.
      */
-    public function currentPlan(): ?StudyCycle
+    public function planForCourse(int $courseId): ?StudyCycle
     {
-        return $this->studyCycles()->latest('id')->first();
+        return $this->studyCycles()->where('course_id', $courseId)->first();
     }
 
     /**

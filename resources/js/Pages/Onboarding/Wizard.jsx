@@ -85,7 +85,7 @@ function Pill({ selected, children, onClick }) {
 }
 
 /* --- Wizard ------------------------------------------------------------- */
-export default function Wizard({ courses = [], preselectedCourseId = null, existingPlan = null }) {
+export default function Wizard({ courses = [], preselectedCourseId = null, plannedCourseIds = [] }) {
     const [step, setStep] = useState(1);
     const [courseId, setCourseId] = useState(preselectedCourseId ?? null);
     const [pace, setPace] = useState(null); // número (por dia) | 'custom'
@@ -94,18 +94,9 @@ export default function Wizard({ courses = [], preselectedCourseId = null, exist
     const [studied, setStudied] = useState([]); // topic ids
     const [processing, setProcessing] = useState(false);
     const [errors, setErrors] = useState({});
-    const [confirmingDelete, setConfirmingDelete] = useState(false);
-    const [deleting, setDeleting] = useState(false);
 
-    const deleteExistingPlan = () => {
-        if (!existingPlan) return;
-        setDeleting(true);
-        // On success the server redirects back here; the wizard reloads without
-        // an existing plan and the student can start fresh.
-        router.delete(`/planos/${existingPlan.id}`, {
-            onFinish: () => setDeleting(false),
-        });
-    };
+    // Courses the student already has a plan for (one plan per cargo).
+    const isPlanned = (id) => plannedCourseIds.includes(id);
 
     const course = useMemo(() => courses.find((c) => c.id === courseId) || null, [courses, courseId]);
     const subjects = course?.subjects ?? [];
@@ -135,7 +126,7 @@ export default function Wizard({ courses = [], preselectedCourseId = null, exist
     const barPct = Math.min(100, Math.round((weeklyHours / MAX_WEEKLY_HOURS) * 100));
 
     const canNext = () => {
-        if (step === 1) return !!courseId;
+        if (step === 1) return !!courseId && !isPlanned(courseId);
         if (step === 2) return weeklyTasks > 0;
         return true;
     };
@@ -154,97 +145,6 @@ export default function Wizard({ courses = [], preselectedCourseId = null, exist
 
     const next = () => setStep((s) => Math.min(STEPS.length, s + 1));
     const back = () => setStep((s) => Math.max(1, s - 1));
-
-    // If the student already has a plan, block the wizard and ask them to delete
-    // the current plan (with confirmation) before creating a new one.
-    if (existingPlan) {
-        return (
-            <div className="min-h-screen bg-slate-50 py-8">
-                <Head title="Montar meu plano" />
-
-                <div className="mx-auto max-w-3xl px-4">
-                    <div className="mb-6 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold text-white">
-                                CI
-                            </span>
-                            <span className="font-semibold text-slate-900">Montar meu plano</span>
-                        </div>
-                        <Link href="/planos" className="text-sm text-slate-400 hover:text-slate-600">
-                            Sair
-                        </Link>
-                    </div>
-
-                    <div className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-                        <div className="mx-auto max-w-md text-center">
-                            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-2xl">
-                                ⚠️
-                            </div>
-                            <h2 className="mt-4 text-lg font-semibold text-slate-900">
-                                Você já tem um plano
-                            </h2>
-                            <p className="mt-2 text-sm text-slate-500">
-                                Só é possível ter um plano por vez. Para montar um novo, apague o
-                                plano atual primeiro. As tarefas e revisões deste plano serão
-                                removidas.
-                            </p>
-
-                            <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-left">
-                                <p className="text-xs uppercase tracking-wide text-slate-400">
-                                    Plano atual
-                                </p>
-                                <p className="mt-0.5 font-medium text-slate-800">
-                                    {existingPlan.name}
-                                </p>
-                            </div>
-
-                            {!confirmingDelete ? (
-                                <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
-                                    <Link
-                                        href="/planos"
-                                        className="rounded-lg px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100"
-                                    >
-                                        Cancelar
-                                    </Link>
-                                    <button
-                                        type="button"
-                                        onClick={() => setConfirmingDelete(true)}
-                                        className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
-                                    >
-                                        Apagar plano atual
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4">
-                                    <p className="text-sm font-medium text-red-800">
-                                        Tem certeza? Esta ação não pode ser desfeita.
-                                    </p>
-                                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:justify-center">
-                                        <button
-                                            type="button"
-                                            onClick={() => setConfirmingDelete(false)}
-                                            disabled={deleting}
-                                            className="rounded-lg px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-white"
-                                        >
-                                            Cancelar
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={deleteExistingPlan}
-                                            disabled={deleting}
-                                            className="rounded-lg bg-red-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-60"
-                                        >
-                                            {deleting ? 'Apagando…' : 'Sim, apagar e continuar'}
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
 
     const submit = () => {
         setProcessing(true);
@@ -307,39 +207,61 @@ export default function Wizard({ courses = [], preselectedCourseId = null, exist
                                             Nenhum concurso disponível. Rode o seeder do banco.
                                         </p>
                                     )}
-                                    {courses.map((c) => (
-                                        <button
-                                            key={c.id}
-                                            type="button"
-                                            onClick={() => setCourseId(c.id)}
-                                            className={
-                                                'flex w-full items-center justify-between rounded-xl border p-4 text-left transition ' +
-                                                (courseId === c.id
-                                                    ? 'border-brand-600 ring-1 ring-brand-600'
-                                                    : 'border-slate-200 hover:border-brand-300')
-                                            }
-                                        >
-                                            <div>
-                                                <p className="font-medium text-slate-900">
-                                                    {c.label ?? c.name}
-                                                </p>
-                                                <p className="text-sm text-slate-500">
-                                                    {c.orgao ?? 'Órgão não informado'} ·{' '}
-                                                    {c.subjects.length} disciplinas
-                                                </p>
-                                            </div>
-                                            <span
+                                    {courses.map((c) => {
+                                        const planned = isPlanned(c.id);
+                                        return (
+                                            <button
+                                                key={c.id}
+                                                type="button"
+                                                disabled={planned}
+                                                onClick={() => setCourseId(c.id)}
                                                 className={
-                                                    'flex h-5 w-5 items-center justify-center rounded-full border ' +
-                                                    (courseId === c.id
-                                                        ? 'border-brand-600 bg-brand-600 text-white'
-                                                        : 'border-slate-300')
+                                                    'flex w-full items-center justify-between rounded-xl border p-4 text-left transition ' +
+                                                    (planned
+                                                        ? 'cursor-not-allowed border-slate-200 bg-slate-50 opacity-70'
+                                                        : courseId === c.id
+                                                          ? 'border-brand-600 ring-1 ring-brand-600'
+                                                          : 'border-slate-200 hover:border-brand-300')
                                                 }
                                             >
-                                                {courseId === c.id ? '✓' : ''}
-                                            </span>
-                                        </button>
-                                    ))}
+                                                <div>
+                                                    <p className="font-medium text-slate-900">
+                                                        {c.label ?? c.name}
+                                                    </p>
+                                                    <p className="text-sm text-slate-500">
+                                                        {c.orgao ?? 'Órgão não informado'} ·{' '}
+                                                        {c.subjects.length} disciplinas
+                                                    </p>
+                                                </div>
+                                                {planned ? (
+                                                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                                                        Plano já criado
+                                                    </span>
+                                                ) : (
+                                                    <span
+                                                        className={
+                                                            'flex h-5 w-5 items-center justify-center rounded-full border ' +
+                                                            (courseId === c.id
+                                                                ? 'border-brand-600 bg-brand-600 text-white'
+                                                                : 'border-slate-300')
+                                                        }
+                                                    >
+                                                        {courseId === c.id ? '✓' : ''}
+                                                    </span>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+
+                                    {courseId && isPlanned(courseId) && (
+                                        <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                                            Você já tem um plano para este cargo. Apague-o em{' '}
+                                            <Link href="/planos" className="font-medium underline">
+                                                Planos
+                                            </Link>{' '}
+                                            para criar outro.
+                                        </p>
+                                    )}
                                 </div>
                             </section>
                         )}

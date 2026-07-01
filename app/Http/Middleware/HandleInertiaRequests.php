@@ -32,8 +32,12 @@ class HandleInertiaRequests extends Middleware
     {
         $user = $this->currentUser($request);
 
-        // Single source of truth: the user's one and only plan (or null).
-        $plan = $user?->currentPlan();
+        // The plan the user is currently viewing (single source of truth) plus
+        // all of their plans, so the top-bar selector can switch between them.
+        $active = $this->activePlan($request);
+        $plans = $user
+            ? $user->studyCycles()->latest('id')->get(['id', 'name'])
+            : collect();
 
         return [
             ...parent::share($request),
@@ -43,7 +47,8 @@ class HandleInertiaRequests extends Middleware
                     ? $user->only('id', 'name', 'email')
                     : null,
             ],
-            'currentPlan' => $plan ? $plan->only('id', 'name') : null,
+            'currentPlan' => $active ? $active->only('id', 'name') : null,
+            'userPlans' => $plans,
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),

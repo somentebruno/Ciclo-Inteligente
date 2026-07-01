@@ -52,13 +52,14 @@ class PlanTest extends TestCase
         $this->get('/planos')->assertOk()->assertInertia(
             fn (Assert $page) => $page
                 ->component('Planos/Index')
-                ->has('plans', 1)
-                ->where('plans.0.orgao', 'IBGE')
-                ->where('plans.0.title', 'IBGE — Temporário 2026 (Pós-edital)')
-                ->has('plans.0.cargos', 1)
-                ->where('plans.0.cargos.0.subjects_count', 1)
-                ->where('plans.0.cargos.0.topics_count', 1)
-                ->where('plans.0.cargos.0.course_id', $course->id)
+                ->has('catalog', 1)
+                ->where('catalog.0.orgao', 'IBGE')
+                ->where('catalog.0.title', 'IBGE — Temporário 2026 (Pós-edital)')
+                ->has('catalog.0.cargos', 1)
+                ->where('catalog.0.cargos.0.subjects_count', 1)
+                ->where('catalog.0.cargos.0.topics_count', 1)
+                ->where('catalog.0.cargos.0.course_id', $course->id)
+                ->has('myPlans', 0)
         );
     }
 
@@ -115,5 +116,41 @@ class PlanTest extends TestCase
         $this->delete("/planos/{$cycle->id}")->assertForbidden();
 
         $this->assertDatabaseHas('study_cycles', ['id' => $cycle->id]);
+    }
+
+    public function test_index_lists_all_user_plans_with_the_active_one_flagged(): void
+    {
+        $a = $this->makeCycle(); // older
+        $b = $this->makeCycle(); // newer -> active by default (latest)
+
+        $this->get('/planos')->assertInertia(
+            fn (Assert $page) => $page
+                ->has('myPlans', 2)
+                ->where('currentPlan.id', $b->id)
+                // newest first
+                ->where('myPlans.0.id', $b->id)
+                ->where('myPlans.0.is_active', true)
+                ->where('myPlans.1.id', $a->id)
+                ->where('myPlans.1.is_active', false)
+        );
+    }
+
+    public function test_activate_switches_the_active_plan(): void
+    {
+        $a = $this->makeCycle();
+        $b = $this->makeCycle(); // default active (latest)
+
+        $this->post("/planos/{$a->id}/ativar")->assertRedirect();
+
+        $this->get('/planos')->assertInertia(
+            fn (Assert $page) => $page->where('currentPlan.id', $a->id)
+        );
+    }
+
+    public function test_cannot_activate_another_users_plan(): void
+    {
+        $cycle = $this->makeCycle(User::factory()->create());
+
+        $this->post("/planos/{$cycle->id}/ativar")->assertForbidden();
     }
 }

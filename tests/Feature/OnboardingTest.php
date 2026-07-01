@@ -109,7 +109,7 @@ class OnboardingTest extends TestCase
         $this->post('/onboarding', [])->assertSessionHasErrors(['course_id', 'weekly_tasks', 'subjects']);
     }
 
-    public function test_store_is_blocked_when_a_plan_already_exists(): void
+    public function test_store_is_blocked_when_a_plan_for_the_same_cargo_exists(): void
     {
         $user = User::factory()->create();
         $this->actingAs($user);
@@ -119,7 +119,7 @@ class OnboardingTest extends TestCase
         ]);
         $subject = Subject::create(['course_id' => $course->id, 'name' => 'Port', 'slug' => 'portugues']);
 
-        // Pre-existing plan for the same user.
+        // Pre-existing plan for the SAME cargo/course.
         StudyCycle::create([
             'user_id' => $user->id, 'course_id' => $course->id, 'name' => 'Plano atual', 'weekly_tasks' => 7, 'status' => 'active',
         ]);
@@ -134,7 +134,36 @@ class OnboardingTest extends TestCase
             'studied_topics' => [],
         ])->assertRedirect()->assertSessionHas('error');
 
-        // No second plan was created.
+        // No second plan for that cargo was created.
         $this->assertSame(1, StudyCycle::where('user_id', $user->id)->count());
+    }
+
+    public function test_store_allows_a_plan_for_a_different_cargo(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        // Existing plan for cargo A.
+        $courseA = Course::create(['name' => 'Cargo A', 'slug' => 'cargo-a', 'is_active' => true]);
+        StudyCycle::create([
+            'user_id' => $user->id, 'course_id' => $courseA->id, 'name' => 'Plano A', 'weekly_tasks' => 7, 'status' => 'active',
+        ]);
+
+        // New plan for cargo B is allowed.
+        $courseB = Course::create(['name' => 'Cargo B', 'slug' => 'cargo-b', 'is_active' => true]);
+        $subject = Subject::create(['course_id' => $courseB->id, 'name' => 'Info', 'slug' => 'info-b']);
+        Topic::create(['subject_id' => $subject->id, 'name' => 'Redes', 'order' => 0, 'estimated_minutes' => 30]);
+
+        $this->post('/onboarding', [
+            'course_id' => $courseB->id,
+            'weekly_tasks' => 14,
+            'daily_tasks' => 2,
+            'subjects' => [
+                ['subject_id' => $subject->id, 'difficulty' => 'medio', 'format' => 'pdf'],
+            ],
+            'studied_topics' => [],
+        ])->assertRedirect(route('plano-semanal'));
+
+        $this->assertSame(2, StudyCycle::where('user_id', $user->id)->count());
     }
 }

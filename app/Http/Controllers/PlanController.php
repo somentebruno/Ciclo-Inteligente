@@ -20,8 +20,9 @@ class PlanController extends Controller
     ];
 
     /**
-     * Catalog of available plans, grouped by órgão. Each cargo carries the
-     * subject/topic counts of its concurso and can be opened to create a plan.
+     * The student's plans + the catalog of available concursos, grouped by órgão.
+     * One plan per cargo: cargos whose course already has a plan are flagged so
+     * the UI can offer to delete it instead of creating a duplicate.
      */
     public function index(Request $request): Response
     {
@@ -31,7 +32,7 @@ class PlanController extends Controller
             ->orderBy('name')
             ->get();
 
-        $plans = $courses
+        $catalog = $courses
             ->groupBy(fn (Course $course) => $course->orgao ?? 'Outros')
             ->map(fn ($group, $orgao) => [
                 'orgao' => $orgao,
@@ -47,10 +48,22 @@ class PlanController extends Controller
             ])
             ->values();
 
-        // The student's current plan is shared globally (see HandleInertiaRequests),
-        // so the page reads it from there.
+        $user = $this->currentUser($request);
+        $activeId = $this->activePlan($request)?->id;
+
+        $myPlans = $user->studyCycles()
+            ->latest('id')
+            ->get(['id', 'name', 'course_id'])
+            ->map(fn (StudyCycle $c) => [
+                'id' => $c->id,
+                'name' => $c->name,
+                'course_id' => $c->course_id,
+                'is_active' => $c->id === $activeId,
+            ]);
+
         return Inertia::render('Planos/Index', [
-            'plans' => $plans,
+            'catalog' => $catalog,
+            'myPlans' => $myPlans,
         ]);
     }
 
@@ -67,9 +80,23 @@ class PlanController extends Controller
     }
 
     /**
-     * Delete the student's plan (study cycle). Cascades to its items, tasks and
-     * pivots; study sessions are preserved (FK set to null). This is what frees
-     * the student to create a new plan.
+     * Make the given plan the one the user is currently viewing.
+     */
+    public function activate(Request $request, StudyCycle $cycle): RedirectResponse
+    {
+        $user = $this->currentUser($request);
+
+        abort_unless($cycle->user_id === $user->id, 403);
+
+        $request->session()->put('active_cycle_id', $cycle->id);
+
+        return back()->with('success', 'Plano ativo atualizado.');
+    }
+
+    /**
+     * Delete one of the student's plans (study cycle). Cascades to its items,
+     * tasks and pivots; study sessions are preserved (FK set to null). This is
+     * what frees the cargo so a new plan can be created for it.
      */
     public function destroy(Request $request, StudyCycle $cycle): RedirectResponse
     {
@@ -79,6 +106,6 @@ class PlanController extends Controller
 
         $cycle->delete();
 
-        return back()->with('success', 'Plano apagado. Agora você pode criar um novo.');
+        return back()->with('success', 'Plano apagado.');
     }
 }

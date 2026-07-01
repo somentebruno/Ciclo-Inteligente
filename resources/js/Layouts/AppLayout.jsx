@@ -114,7 +114,13 @@ function Sidebar({ currentUrl, onNavigate }) {
 export default function AppLayout({ title, children }) {
     const { url, props } = usePage();
     const [mobileOpen, setMobileOpen] = useState(false);
-    const { currentPlan, auth } = props;
+    const { currentPlan, userPlans = [], auth } = props;
+
+    const handlePlanChange = (e) => {
+        const planId = e.target.value;
+        if (!planId || String(currentPlan?.id) === planId) return;
+        router.post(`/planos/${planId}/ativar`, {}, { preserveScroll: true });
+    };
 
     return (
         <div className="min-h-screen bg-slate-50">
@@ -155,7 +161,20 @@ export default function AppLayout({ title, children }) {
                     ) : null}
 
                     <div className="ml-auto flex items-center gap-3">
-                        {currentPlan ? (
+                        {userPlans.length > 1 ? (
+                            <select
+                                value={currentPlan?.id ?? ''}
+                                onChange={handlePlanChange}
+                                title="Trocar o plano ativo"
+                                className="hidden max-w-xs rounded-md border-0 py-1.5 pl-3 pr-9 text-sm font-medium text-slate-700 ring-1 ring-inset ring-slate-300 focus:ring-2 focus:ring-brand-600 sm:block"
+                            >
+                                {userPlans.map((p) => (
+                                    <option key={p.id} value={p.id}>
+                                        {p.name}
+                                    </option>
+                                ))}
+                            </select>
+                        ) : currentPlan ? (
                             <span
                                 title={currentPlan.name}
                                 className="hidden max-w-xs truncate rounded-md bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 sm:inline"

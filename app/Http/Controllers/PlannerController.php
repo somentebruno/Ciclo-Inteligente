@@ -23,7 +23,7 @@ class PlannerController extends Controller
         $user = $this->currentUser($request);
         $today = Carbon::today();
 
-        $planId = $user->currentPlan()?->id;
+        $planId = $this->activePlan($request)?->id;
 
         $tasks = StudyTask::query()
             ->where('user_id', $user->id)
@@ -55,7 +55,7 @@ class PlannerController extends Controller
         $user = $this->currentUser($request);
         $today = Carbon::today();
 
-        $planId = $user->currentPlan()?->id;
+        $planId = $this->activePlan($request)?->id;
 
         $reviews = StudyTask::query()
             ->where('user_id', $user->id)
@@ -97,7 +97,7 @@ class PlannerController extends Controller
         $user = $this->currentUser($request);
         $today = Carbon::today();
 
-        $planId = $user->currentPlan()?->id;
+        $planId = $this->activePlan($request)?->id;
 
         $tasks = StudyTask::query()
             ->where('user_id', $user->id)

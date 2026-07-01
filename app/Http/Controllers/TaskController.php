@@ -22,7 +22,7 @@ class TaskController extends Controller
     {
         $user = $this->currentUser($request);
 
-        $planId = $user->currentPlan()?->id;
+        $planId = $this->activePlan($request)?->id;
 
         $tasks = StudyTask::query()
             ->where('user_id', $user->id)

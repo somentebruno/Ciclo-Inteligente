@@ -2,7 +2,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { Link, usePage } from '@inertiajs/react';
 
 export default function Home() {
-    const { currentPlan, auth } = usePage().props;
+    const { currentPlan, userPlans = [], auth } = usePage().props;
 
     return (
         <AppLayout title="Início">
@@ -30,11 +30,14 @@ export default function Home() {
                                 Desempenho) reflete este plano.
                             </p>
                             <p className="mt-2">
-                                Para trocar de plano, apague o atual em{' '}
+                                {userPlans.length > 1
+                                    ? 'Você tem mais de um plano — troque o plano ativo pelo seletor no topo da página.'
+                                    : 'Você pode ter um plano por cargo.'}{' '}
+                                Para criar ou apagar planos, vá em{' '}
                                 <Link href="/planos" className="font-medium text-brand-700 underline">
                                     Planos
-                                </Link>{' '}
-                                e crie um novo.
+                                </Link>
+                                .
                             </p>
                         </div>
                     </>

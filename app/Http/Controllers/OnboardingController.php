@@ -62,9 +62,9 @@ class OnboardingController extends Controller
         return Inertia::render('Onboarding/Wizard', [
             'courses' => $courses,
             'preselectedCourseId' => $request->integer('course') ?: null,
-            // If the student already has a plan, the wizard blocks and asks them
-            // to delete it first before a new one can be created.
-            'existingPlan' => $user->currentPlan()?->only('id', 'name'),
+            // Courses the student already has a plan for — one plan per cargo, so
+            // these can't be picked again until the existing plan is deleted.
+            'plannedCourseIds' => $user->studyCycles()->pluck('course_id')->all(),
         ]);
     }
 
@@ -86,17 +86,16 @@ class OnboardingController extends Controller
         ]);
 
         $user = $this->currentUser($request);
+        $course = Course::with('cargos:id,course_id,name,code')->findOrFail($data['course_id']);
 
-        // A student may only have one plan at a time. To create a new one they
-        // must explicitly delete the current plan first (see PlanController@destroy).
-        if ($user->currentPlan()) {
+        // One plan per cargo/course. To recreate it, the student must delete the
+        // existing plan for THIS cargo first (see PlanController@destroy).
+        if ($user->planForCourse($course->id)) {
             return back()->with(
                 'error',
-                'Você já possui um plano. Apague o plano atual antes de criar um novo.'
+                'Você já tem um plano para este cargo. Apague-o antes de criar outro.'
             );
         }
-
-        $course = Course::with('cargos:id,course_id,name,code')->findOrFail($data['course_id']);
 
         $cargo = $course->cargos->first();
         $planLabel = $cargo
