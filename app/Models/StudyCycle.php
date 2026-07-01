@@ -75,6 +75,14 @@ class StudyCycle extends Model
     }
 
     /**
+     * @return HasMany<StudyTask>
+     */
+    public function tasks(): HasMany
+    {
+        return $this->hasMany(StudyTask::class);
+    }
+
+    /**
      * Subjects configured for this cycle, with per-cycle difficulty & format.
      *
      * @return BelongsToMany<Subject>

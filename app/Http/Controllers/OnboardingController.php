@@ -6,6 +6,7 @@ use App\Models\Course;
 use App\Models\StudyCycle;
 use App\Models\User;
 use App\Services\CycleGeneratorService;
+use App\Services\TaskSchedulerService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -104,8 +105,9 @@ class OnboardingController extends Controller
                 ->all();
             $cycle->studiedTopics()->sync($studiedPivot);
 
-            // Assemble the plan.
+            // Assemble the plan and schedule the task queue.
             app(CycleGeneratorService::class)->generate($cycle, $data['subjects']);
+            app(TaskSchedulerService::class)->schedule($cycle);
         });
 
         return redirect()

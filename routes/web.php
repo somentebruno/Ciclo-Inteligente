@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\OnboardingController;
+use App\Http\Controllers\TaskController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -27,7 +28,11 @@ Route::post('/onboarding', [OnboardingController::class, 'store'])->name('onboar
 |--------------------------------------------------------------------------
 */
 Route::get('/metas-do-dia', fn () => Inertia::render('MetasDoDia'))->name('metas');
-Route::get('/tarefas', fn () => Inertia::render('Tarefas'))->name('tarefas');
+
+Route::get('/tarefas', [TaskController::class, 'index'])->name('tarefas');
+Route::get('/tarefas/{task}', [TaskController::class, 'show'])->name('tasks.show');
+Route::post('/tarefas/{task}/concluir', [TaskController::class, 'complete'])->name('tasks.complete');
+
 Route::get('/revisoes', fn () => Inertia::render('Revisoes'))->name('revisoes');
 Route::get('/plano-semanal', fn () => Inertia::render('PlanoSemanal'))->name('plano-semanal');
 Route::get('/desempenho', fn () => Inertia::render('Desempenho'))->name('desempenho');

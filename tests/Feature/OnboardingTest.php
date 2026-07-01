@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Course;
 use App\Models\StudyCycle;
+use App\Models\StudyTask;
 use App\Models\Subject;
 use App\Models\Topic;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -36,6 +37,10 @@ class OnboardingTest extends TestCase
 
         $crase = Topic::create([
             'subject_id' => $port->id, 'name' => 'Crase', 'order' => 0, 'estimated_minutes' => 30,
+        ]);
+        // A not-yet-studied topic, so a theory task can be scheduled.
+        Topic::create([
+            'subject_id' => $info->id, 'name' => 'Redes', 'order' => 0, 'estimated_minutes' => 30,
         ]);
 
         $response = $this->post('/onboarding', [
@@ -78,6 +83,17 @@ class OnboardingTest extends TestCase
             'study_cycle_id' => $cycle->id,
             'topic_id' => $crase->id,
             'already_studied' => true,
+        ]);
+
+        // The task queue was scheduled. The studied 'Crase' topic must not be a
+        // theory task (it left the theoretical queue), but may be a review task.
+        $this->assertTrue(
+            StudyTask::where('study_cycle_id', $cycle->id)->where('type', 'theory')->exists()
+        );
+        $this->assertDatabaseMissing('study_tasks', [
+            'study_cycle_id' => $cycle->id,
+            'topic_id' => $crase->id,
+            'type' => 'theory',
         ]);
     }
 
