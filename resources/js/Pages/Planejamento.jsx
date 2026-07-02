@@ -29,8 +29,6 @@ const HistoryIcon = () => (
     </svg>
 );
 
-const MANUAL_DURATIONS = [15, 30, 45, 60, 90, 120];
-
 /* --- Ícones do modo de foco ----------------------------------------------- */
 const FocusPlayIcon = ({ className = 'h-6 w-6' }) => (
     <svg className={className} fill="currentColor" viewBox="0 0 24 24">
@@ -808,6 +806,640 @@ function CycleDonut({ sequence, totalLabel }) {
     );
 }
 
+/* --- Registro de Estudo — modal "Adicionar Estudo Manualmente" ----------- */
+const CATEGORY_OPTIONS = ['Teoria', 'Revisão', 'Questões'];
+const NEW_CATEGORY = '__new__';
+const PASTEL_COLORS = [
+    '#fecaca', '#fed7aa', '#fef08a', '#d9f99d', '#bbf7d0',
+    '#a7f3d0', '#99f6e4', '#a5f3fc', '#bae6fd', '#bfdbfe',
+    '#c7d2fe', '#ddd6fe', '#e9d5ff', '#f5d0fe', '#fbcfe8',
+];
+const REVIEW_CANDIDATES = [1, 3, 7, 14, 21, 30, 45, 60, 90, 120, 150, 180];
+
+const ChevronDownIcon = ({ className = 'h-4 w-4' }) => (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+    </svg>
+);
+const SmallPlusIcon = ({ className = 'h-3.5 w-3.5' }) => (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+    </svg>
+);
+
+function todayISO() {
+    return new Date().toISOString().slice(0, 10);
+}
+function yesterdayISO() {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+}
+
+function FieldLabel({ children }) {
+    return (
+        <label className="block text-xs font-bold uppercase tracking-wider text-slate-400">
+            {children}
+        </label>
+    );
+}
+
+const fieldClass =
+    'mt-1.5 w-full rounded-lg border-slate-300 text-sm focus:border-emerald-500 focus:ring-emerald-500';
+
+function StudyLogModal({ item, subjects, onClose }) {
+    const [dateChoice, setDateChoice] = useState('hoje');
+    const [customDate, setCustomDate] = useState(todayISO());
+
+    const [categories, setCategories] = useState(CATEGORY_OPTIONS);
+    const [category, setCategory] = useState(CATEGORY_OPTIONS[0]);
+    const [showCategoryList, setShowCategoryList] = useState(false);
+    const [showNewCategory, setShowNewCategory] = useState(false);
+    const [newCatName, setNewCatName] = useState('');
+    const [newCatColor, setNewCatColor] = useState(PASTEL_COLORS[0]);
+    const [showColorPopover, setShowColorPopover] = useState(false);
+
+    const [subjectItemId, setSubjectItemId] = useState(item.id);
+    const subject = subjects.find((s) => s.id === Number(subjectItemId)) ?? item;
+
+    const [hh, setHh] = useState('00');
+    const [mm, setMm] = useState('30');
+    const [ss, setSs] = useState('00');
+
+    const [topicQuery, setTopicQuery] = useState('');
+    const [topicId, setTopicId] = useState(null);
+    const [showTopicList, setShowTopicList] = useState(false);
+
+    const [material, setMaterial] = useState('');
+
+    const [theoryDone, setTheoryDone] = useState(false);
+    const [scheduleReviews, setScheduleReviews] = useState(false);
+    const [reviewIntervals, setReviewIntervals] = useState([1, 7, 30, 60, 120]);
+    const [countInPlan, setCountInPlan] = useState(true);
+
+    const [correct, setCorrect] = useState('');
+    const [wrong, setWrong] = useState('');
+    const [pages, setPages] = useState([{ start: '', end: '' }]);
+    const [videos, setVideos] = useState([{ title: '', start: '', end: '' }]);
+
+    const [comments, setComments] = useState('');
+    const [saving, setSaving] = useState(false);
+
+    const topics = subject?.topics ?? [];
+    const filteredTopics = topics
+        .filter((t) => t.label.toLowerCase().includes(topicQuery.toLowerCase()))
+        .slice(0, 8);
+
+    const addReviewInterval = () => {
+        const next = REVIEW_CANDIDATES.find((d) => !reviewIntervals.includes(d));
+        const value = next ?? Math.max(...reviewIntervals, 0) + 15;
+        setReviewIntervals((prev) => [...prev, value].sort((a, b) => a - b));
+    };
+    const removeReviewInterval = (d) =>
+        setReviewIntervals((prev) => prev.filter((x) => x !== d));
+
+    const updateRow = (setter, index, field, value) =>
+        setter((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
+
+    const saveNewCategory = () => {
+        const name = newCatName.trim();
+        if (!name) return;
+        setCategories((prev) => [...prev, name]);
+        setCategory(name);
+        setShowNewCategory(false);
+        setNewCatName('');
+        setNewCatColor(PASTEL_COLORS[0]);
+    };
+
+    const buildNotes = () => {
+        const parts = [`Categoria: ${category}`];
+        if (material.trim()) parts.push(`Material: ${material.trim()}`);
+        const pageRanges = pages
+            .filter((p) => p.start !== '' || p.end !== '')
+            .map((p) => `${p.start || '?'}–${p.end || '?'}`);
+        if (pageRanges.length) parts.push(`Páginas: ${pageRanges.join(', ')}`);
+        const videoEntries = videos
+            .filter((v) => v.title.trim() || v.start || v.end)
+            .map((v) => `${v.title || 'Vídeo'} (${v.start || '00:00'}–${v.end || '00:00'})`);
+        if (videoEntries.length) parts.push(`Videoaulas: ${videoEntries.join('; ')}`);
+        if (comments.trim()) parts.push(comments.trim());
+        return parts.join('\n');
+    };
+
+    const durationMinutes = Math.max(
+        1,
+        Math.round((Number(hh) || 0) * 60 + (Number(mm) || 0) + (Number(ss) || 0) / 60),
+    );
+
+    const save = () => {
+        setSaving(true);
+        router.post(
+            '/planejamento/sessoes',
+            {
+                study_cycle_item_id: subjectItemId,
+                date: dateChoice === 'hoje' ? todayISO() : dateChoice === 'ontem' ? yesterdayISO() : customDate,
+                duration_minutes: durationMinutes,
+                topic_id: topicId,
+                questions_total: correct !== '' || wrong !== '' ? (Number(correct) || 0) + (Number(wrong) || 0) : null,
+                questions_correct: correct !== '' ? Number(correct) : null,
+                count_in_plan: countInPlan,
+                theory_completed: theoryDone,
+                review_intervals: scheduleReviews ? reviewIntervals : [],
+                notes: buildNotes(),
+            },
+            {
+                preserveScroll: true,
+                onSuccess: onClose,
+                onFinish: () => setSaving(false),
+            },
+        );
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/50" onClick={() => !saving && onClose()} />
+
+            <div className="relative z-10 max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl sm:p-7">
+                <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-bold text-slate-900">Registro de Estudo</h2>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="Fechar"
+                        className="text-slate-400 transition hover:text-slate-600"
+                    >
+                        <CloseXIcon className="h-5 w-5" />
+                    </button>
+                </div>
+
+                {/* Data */}
+                <div className="mt-5 flex flex-wrap items-center gap-2">
+                    {[
+                        { key: 'hoje', label: 'Hoje' },
+                        { key: 'ontem', label: 'Ontem' },
+                        { key: 'outro', label: 'Outro' },
+                    ].map((d) => (
+                        <button
+                            key={d.key}
+                            type="button"
+                            onClick={() => setDateChoice(d.key)}
+                            className={
+                                'rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wide transition ' +
+                                (dateChoice === d.key
+                                    ? 'bg-emerald-600 text-white'
+                                    : 'border border-slate-300 bg-white text-slate-500 hover:border-emerald-400')
+                            }
+                        >
+                            {d.label}
+                        </button>
+                    ))}
+                    {dateChoice === 'outro' && (
+                        <input
+                            type="date"
+                            value={customDate}
+                            onChange={(e) => setCustomDate(e.target.value)}
+                            max={todayISO()}
+                            className="rounded-lg border-slate-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                        />
+                    )}
+                </div>
+
+                {/* Campos principais */}
+                <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {/* Categoria */}
+                    <div className="relative">
+                        <FieldLabel>Categoria</FieldLabel>
+                        <button
+                            type="button"
+                            onClick={() => setShowCategoryList((v) => !v)}
+                            className={fieldClass + ' flex items-center justify-between bg-white px-3 py-2 text-left text-slate-700'}
+                        >
+                            {category}
+                            <ChevronDownIcon className="h-4 w-4 text-slate-400" />
+                        </button>
+                        {showCategoryList && (
+                            <div className="absolute z-20 mt-1 w-full rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                                {categories.map((c) => (
+                                    <button
+                                        key={c}
+                                        type="button"
+                                        onClick={() => {
+                                            setCategory(c);
+                                            setShowCategoryList(false);
+                                        }}
+                                        className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                    >
+                                        {c}
+                                    </button>
+                                ))}
+                                <div className="my-1 border-t border-slate-100" />
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowCategoryList(false);
+                                        setShowNewCategory(true);
+                                    }}
+                                    className="block w-full px-3 py-2 text-left text-sm font-semibold text-emerald-700 hover:bg-emerald-50"
+                                >
+                                    + Nova Categoria
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Disciplina */}
+                    <div>
+                        <FieldLabel>Disciplina</FieldLabel>
+                        <select
+                            value={subjectItemId}
+                            onChange={(e) => {
+                                setSubjectItemId(Number(e.target.value));
+                                setTopicId(null);
+                                setTopicQuery('');
+                            }}
+                            className={fieldClass}
+                        >
+                            {subjects.map((s) => (
+                                <option key={s.id} value={s.id}>
+                                    {s.subject}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* Tempo de estudo */}
+                    <div>
+                        <FieldLabel>Tempo de estudo (HH:MM:SS)</FieldLabel>
+                        <div className="mt-1.5 flex items-center gap-1">
+                            <input
+                                type="number"
+                                min="0"
+                                max="23"
+                                value={hh}
+                                onChange={(e) => setHh(String(Math.min(23, Math.max(0, Number(e.target.value) || 0))).padStart(2, '0'))}
+                                onFocus={(e) => e.target.select()}
+                                className="w-full rounded-lg border-slate-300 text-center text-sm tabular-nums focus:border-emerald-500 focus:ring-emerald-500"
+                            />
+                            <span className="font-bold text-slate-400">:</span>
+                            <input
+                                type="number"
+                                min="0"
+                                max="59"
+                                value={mm}
+                                onChange={(e) => setMm(String(Math.min(59, Math.max(0, Number(e.target.value) || 0))).padStart(2, '0'))}
+                                onFocus={(e) => e.target.select()}
+                                className="w-full rounded-lg border-slate-300 text-center text-sm tabular-nums focus:border-emerald-500 focus:ring-emerald-500"
+                            />
+                            <span className="font-bold text-slate-400">:</span>
+                            <input
+                                type="number"
+                                min="0"
+                                max="59"
+                                value={ss}
+                                onChange={(e) => setSs(String(Math.min(59, Math.max(0, Number(e.target.value) || 0))).padStart(2, '0'))}
+                                onFocus={(e) => e.target.select()}
+                                className="w-full rounded-lg border-slate-300 text-center text-sm tabular-nums focus:border-emerald-500 focus:ring-emerald-500"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Tópico (autocomplete) */}
+                    <div className="relative">
+                        <FieldLabel>Tópico</FieldLabel>
+                        <input
+                            type="text"
+                            value={topicQuery}
+                            onFocus={() => setShowTopicList(true)}
+                            onChange={(e) => {
+                                setTopicQuery(e.target.value);
+                                setTopicId(null);
+                                setShowTopicList(true);
+                            }}
+                            onBlur={() => setTimeout(() => setShowTopicList(false), 150)}
+                            placeholder="Buscar conteúdo da disciplina…"
+                            className={fieldClass}
+                        />
+                        {showTopicList && filteredTopics.length > 0 && (
+                            <div className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                                {filteredTopics.map((t) => (
+                                    <button
+                                        key={t.id}
+                                        type="button"
+                                        onMouseDown={() => {
+                                            setTopicQuery(t.label);
+                                            setTopicId(t.id);
+                                            setShowTopicList(false);
+                                        }}
+                                        className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                    >
+                                        {t.label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Material */}
+                    <div className="sm:col-span-2">
+                        <FieldLabel>Material</FieldLabel>
+                        <input
+                            type="text"
+                            value={material}
+                            onChange={(e) => setMaterial(e.target.value)}
+                            placeholder="PDF, livro, videoaula…"
+                            className={fieldClass}
+                        />
+                    </div>
+                </div>
+
+                {/* Checkboxes */}
+                <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2">
+                    <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                        <input
+                            type="checkbox"
+                            checked={theoryDone}
+                            onChange={(e) => setTheoryDone(e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 accent-emerald-500"
+                        />
+                        Teoria finalizada
+                    </label>
+                    <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                        <input
+                            type="checkbox"
+                            checked={scheduleReviews}
+                            onChange={(e) => setScheduleReviews(e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 accent-emerald-500"
+                        />
+                        Programar revisões
+                    </label>
+                    <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                        <input
+                            type="checkbox"
+                            checked={countInPlan}
+                            onChange={(e) => setCountInPlan(e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-300 accent-blue-500"
+                        />
+                        Contabilizar no planejamento
+                    </label>
+                </div>
+
+                {scheduleReviews && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-slate-50 p-3">
+                        {reviewIntervals.map((d) => (
+                            <span
+                                key={d}
+                                className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-700"
+                            >
+                                {d}d
+                                <button
+                                    type="button"
+                                    onClick={() => removeReviewInterval(d)}
+                                    className="text-emerald-500 hover:text-emerald-800"
+                                >
+                                    ×
+                                </button>
+                            </span>
+                        ))}
+                        <button
+                            type="button"
+                            onClick={addReviewInterval}
+                            aria-label="Adicionar intervalo de revisão"
+                            className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white transition hover:bg-emerald-600"
+                        >
+                            <SmallPlusIcon />
+                        </button>
+                    </div>
+                )}
+
+                {/* Métricas */}
+                <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div className="rounded-lg border border-emerald-200 p-4">
+                        <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+                            Questões
+                        </p>
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                            <div>
+                                <label className="block text-xs text-slate-500">Acertos</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={correct}
+                                    onChange={(e) => setCorrect(e.target.value)}
+                                    className="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs text-slate-500">Erros</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={wrong}
+                                    onChange={(e) => setWrong(e.target.value)}
+                                    className="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="rounded-lg border border-emerald-200 p-4">
+                        <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+                            Páginas
+                        </p>
+                        <div className="mt-3 space-y-2">
+                            {pages.map((p, i) => (
+                                <div key={i} className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="block text-xs text-slate-500">Início</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={p.start}
+                                            onChange={(e) => updateRow(setPages, i, 'start', e.target.value)}
+                                            className="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs text-slate-500">Fim</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={p.end}
+                                            onChange={(e) => updateRow(setPages, i, 'end', e.target.value)}
+                                            className="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setPages((prev) => [...prev, { start: '', end: '' }])}
+                            aria-label="Adicionar páginas"
+                            className="mt-3 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white transition hover:bg-emerald-600"
+                        >
+                            <SmallPlusIcon />
+                        </button>
+                    </div>
+
+                    <div className="rounded-lg border border-emerald-200 p-4">
+                        <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
+                            Videoaulas
+                        </p>
+                        <div className="mt-3 space-y-2">
+                            {videos.map((v, i) => (
+                                <div key={i} className="space-y-2">
+                                    <div>
+                                        <label className="block text-xs text-slate-500">Título</label>
+                                        <input
+                                            type="text"
+                                            value={v.title}
+                                            onChange={(e) => updateRow(setVideos, i, 'title', e.target.value)}
+                                            className="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label className="block text-xs text-slate-500">Início</label>
+                                            <input
+                                                type="text"
+                                                placeholder="00:00"
+                                                value={v.start}
+                                                onChange={(e) => updateRow(setVideos, i, 'start', e.target.value)}
+                                                className="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs text-slate-500">Fim</label>
+                                            <input
+                                                type="text"
+                                                placeholder="00:00"
+                                                value={v.end}
+                                                onChange={(e) => updateRow(setVideos, i, 'end', e.target.value)}
+                                                className="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setVideos((prev) => [...prev, { title: '', start: '', end: '' }])}
+                            aria-label="Adicionar videoaula"
+                            className="mt-3 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white transition hover:bg-emerald-600"
+                        >
+                            <SmallPlusIcon />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Comentários */}
+                <div className="mt-5">
+                    <FieldLabel>Comentários</FieldLabel>
+                    <textarea
+                        rows={3}
+                        value={comments}
+                        onChange={(e) => setComments(e.target.value)}
+                        className={fieldClass}
+                    />
+                </div>
+
+                {/* Ações */}
+                <div className="mt-6 flex items-center justify-end gap-3">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        disabled={saving}
+                        className="rounded-lg border border-emerald-600 bg-white px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-50"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        type="button"
+                        onClick={save}
+                        disabled={saving}
+                        className="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
+                    >
+                        {saving ? 'Salvando…' : 'Salvar'}
+                    </button>
+                </div>
+            </div>
+
+            {/* Modal — Nova Categoria */}
+            {showNewCategory && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-950/50" onClick={() => setShowNewCategory(false)} />
+                    <div className="relative z-10 w-full max-w-xs rounded-2xl bg-white p-5 shadow-2xl">
+                        <div className="flex items-center justify-between">
+                            <h3 className="text-base font-bold text-slate-900">Nova Categoria</h3>
+                            <button
+                                type="button"
+                                onClick={() => setShowNewCategory(false)}
+                                aria-label="Fechar"
+                                className="text-slate-400 transition hover:text-slate-600"
+                            >
+                                <CloseXIcon className="h-4 w-4" />
+                            </button>
+                        </div>
+
+                        <FieldLabel>Nome</FieldLabel>
+                        <input
+                            type="text"
+                            value={newCatName}
+                            onChange={(e) => setNewCatName(e.target.value)}
+                            className={fieldClass}
+                        />
+
+                        <div className="relative mt-4">
+                            <FieldLabel>Cor</FieldLabel>
+                            <button
+                                type="button"
+                                onClick={() => setShowColorPopover((v) => !v)}
+                                className="mt-1.5 flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-600"
+                            >
+                                <span
+                                    className="h-4 w-4 rounded-full border border-slate-200"
+                                    style={{ backgroundColor: newCatColor }}
+                                />
+                                Escolher cor
+                            </button>
+                            {showColorPopover && (
+                                <div className="absolute z-20 mt-1 grid grid-cols-5 gap-2 rounded-lg border border-slate-200 bg-white p-3 shadow-lg">
+                                    {PASTEL_COLORS.map((c) => (
+                                        <button
+                                            key={c}
+                                            type="button"
+                                            onClick={() => {
+                                                setNewCatColor(c);
+                                                setShowColorPopover(false);
+                                            }}
+                                            style={{ backgroundColor: c }}
+                                            className={
+                                                'h-6 w-6 rounded-full transition ' +
+                                                (newCatColor === c
+                                                    ? 'ring-2 ring-offset-2 ring-emerald-500'
+                                                    : 'hover:scale-110')
+                                            }
+                                        />
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={saveNewCategory}
+                            className="mt-5 w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+                        >
+                            Salvar
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 /* --- Page ---------------------------------------------------------------- */
 export default function Planejamento({ cycle, nextTaskId }) {
     if (!cycle) {
@@ -848,37 +1480,9 @@ export default function Planejamento({ cycle, nextTaskId }) {
     const [focusItem, setFocusItem] = useState(null);
     const startSubject = (item) => setFocusItem(item);
 
-    // Modal "Adicionar Estudo Manualmente"
+    // Modal "Registro de Estudo" (Adicionar Estudo Manualmente)
     const [manualItem, setManualItem] = useState(null);
-    const [manualMinutes, setManualMinutes] = useState(30);
-    const [manualTotal, setManualTotal] = useState('');
-    const [manualCorrect, setManualCorrect] = useState('');
-    const [savingManual, setSavingManual] = useState(false);
-
-    const openManual = (item) => {
-        setManualItem(item);
-        setManualMinutes(30);
-        setManualTotal('');
-        setManualCorrect('');
-    };
-
-    const saveManual = () => {
-        setSavingManual(true);
-        router.post(
-            '/planejamento/sessoes',
-            {
-                study_cycle_item_id: manualItem.id,
-                duration_minutes: manualMinutes,
-                questions_total: manualTotal !== '' ? parseInt(manualTotal, 10) : null,
-                questions_correct: manualCorrect !== '' ? parseInt(manualCorrect, 10) : null,
-            },
-            {
-                preserveScroll: true,
-                onSuccess: () => setManualItem(null),
-                onFinish: () => setSavingManual(false),
-            },
-        );
-    };
+    const openManual = (item) => setManualItem(item);
 
     return (
         <div className="space-y-4">
@@ -1016,92 +1620,13 @@ export default function Planejamento({ cycle, nextTaskId }) {
             {/* Modo de foco */}
             {focusItem && <FocusMode item={focusItem} onClose={() => setFocusItem(null)} />}
 
-            {/* Modal — Adicionar Estudo Manualmente */}
+            {/* Modal — Registro de Estudo */}
             {manualItem && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div
-                        className="absolute inset-0 bg-slate-900/50"
-                        onClick={() => !savingManual && setManualItem(null)}
-                    />
-                    <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-                        <h2 className="text-lg font-bold text-slate-900">
-                            Adicionar estudo manualmente
-                        </h2>
-                        <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-400">
-                            <span
-                                className="h-2.5 w-2.5 rounded-full"
-                                style={{ backgroundColor: manualItem.color }}
-                            />
-                            {manualItem.subject}
-                        </p>
-
-                        <p className="mt-4 text-sm font-semibold text-slate-800">
-                            Quanto tempo você estudou?
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                            {MANUAL_DURATIONS.map((m) => (
-                                <button
-                                    key={m}
-                                    type="button"
-                                    onClick={() => setManualMinutes(m)}
-                                    className={
-                                        'rounded-lg border px-3 py-1.5 text-sm font-medium transition ' +
-                                        (manualMinutes === m
-                                            ? 'border-blue-600 bg-blue-600 text-white'
-                                            : 'border-slate-300 bg-white text-slate-600 hover:border-blue-400')
-                                    }
-                                >
-                                    {fmt(m)}
-                                </button>
-                            ))}
-                        </div>
-
-                        <p className="mt-4 text-sm font-semibold text-slate-800">
-                            Desempenho <span className="font-normal text-slate-400">(opcional)</span>
-                        </p>
-                        <div className="mt-2 grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="block text-xs text-slate-500">Questões feitas</label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    value={manualTotal}
-                                    onChange={(e) => setManualTotal(e.target.value)}
-                                    className="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-blue-500"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs text-slate-500">Acertos</label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    value={manualCorrect}
-                                    onChange={(e) => setManualCorrect(e.target.value)}
-                                    className="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-blue-500"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="mt-6 flex items-center justify-end gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setManualItem(null)}
-                                disabled={savingManual}
-                                className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-50"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                type="button"
-                                onClick={saveManual}
-                                disabled={savingManual}
-                                className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50"
-                            >
-                                {savingManual ? 'Salvando…' : 'Salvar'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <StudyLogModal
+                    item={manualItem}
+                    subjects={cycle.sequence}
+                    onClose={() => setManualItem(null)}
+                />
             )}
         </div>
     );

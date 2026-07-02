@@ -6,6 +6,7 @@ use App\Concerns\ResolvesCurrentUser;
 use App\Models\StudyCycleItem;
 use App\Models\StudySession;
 use App\Models\StudyTask;
+use App\Models\Topic;
 use App\Services\TaskSchedulerService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,7 +31,9 @@ class PlanejamentoController extends Controller
             return Inertia::render('Planejamento', ['cycle' => null]);
         }
 
-        $items = $plan->items()->with('subject:id,name,color')->get();
+        $items = $plan->items()
+            ->with(['subject:id,name,color', 'subject.topics' => fn ($q) => $q->orderBy('order')])
+            ->get();
 
         // Minutes studied per subject in the current lap, fed by the study
         // sessions logged through the completion modal (linked via topic) and
@@ -95,6 +98,13 @@ class PlanejamentoController extends Controller
                     ? min(100, round($studied / $item->planned_minutes * 100, 2))
                     : 0,
                 'next_task_id' => $nextTaskBySubject[$item->subject_id] ?? null,
+                'topics' => ($item->subject?->topics ?? collect())
+                    ->values()
+                    ->map(fn ($t, $i) => [
+                        'id' => $t->id,
+                        'label' => ($i + 1).' '.$t->name,
+                    ])
+                    ->values(),
                 'recent_sessions' => ($recentBySubject[$item->subject_id] ?? collect())
                     ->take(5)
                     ->map(fn ($s) => [
@@ -163,9 +173,9 @@ class PlanejamentoController extends Controller
     }
 
     /**
-     * "Adicionar Estudo Manualmente" — log a study session for a subject
-     * outside the task queue (e.g. extra practice), linked via the cycle item
-     * since there's no specific aula/topic attached.
+     * "Registro de Estudo" — log a study session for a subject outside the task
+     * queue (e.g. extra practice, reading, video lessons), with an optional
+     * date, topic, review scheduling and theory-completion side effects.
      */
     public function storeManualSession(Request $request): RedirectResponse
     {
@@ -174,9 +184,16 @@ class PlanejamentoController extends Controller
 
         $data = $request->validate([
             'study_cycle_item_id' => ['required', 'integer'],
+            'date' => ['nullable', 'date'],
             'duration_minutes' => ['required', 'integer', 'min:1', 'max:1440'],
+            'topic_id' => ['nullable', 'integer', 'exists:topics,id'],
             'questions_total' => ['nullable', 'integer', 'min:0', 'max:10000'],
             'questions_correct' => ['nullable', 'integer', 'min:0', 'max:10000'],
+            'count_in_plan' => ['boolean'],
+            'theory_completed' => ['boolean'],
+            'review_intervals' => ['array'],
+            'review_intervals.*' => ['integer', 'min:1', 'max:365'],
+            'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
         $item = StudyCycleItem::query()
@@ -190,16 +207,60 @@ class PlanejamentoController extends Controller
             $correct = min($correct, $total);
         }
 
+        $studiedAt = isset($data['date']) ? Carbon::parse($data['date'])->setTimeFrom(now()) : now();
+        $countInPlan = $data['count_in_plan'] ?? true;
+
         StudySession::create([
             'user_id' => $plan->user_id,
             'study_cycle_id' => $plan->id,
-            'study_cycle_item_id' => $item->id,
-            'studied_at' => now(),
+            // Only attributed to the cycle's progress bars when the student
+            // wants it counted; otherwise it's just a log entry.
+            'study_cycle_item_id' => $countInPlan ? $item->id : null,
+            'topic_id' => $data['topic_id'] ?? null,
+            'studied_at' => $studiedAt,
             'duration_minutes' => $data['duration_minutes'],
             'questions_total' => $total,
             'questions_correct' => $correct,
+            'notes' => $data['notes'] ?? null,
         ]);
 
-        return back()->with('success', 'Estudo registrado manualmente.');
+        // "Teoria finalizada" — mirrors the task-completion flow: closes the
+        // subject's next pending theory task, if any.
+        if (! empty($data['theory_completed'])) {
+            StudyTask::query()
+                ->where('study_cycle_id', $plan->id)
+                ->where('subject_id', $item->subject_id)
+                ->where('type', StudyTask::TYPE_THEORY)
+                ->where('status', 'pending')
+                ->orderBy('scheduled_for')
+                ->orderBy('position')
+                ->first()
+                ?->update(['status' => 'done', 'completed_at' => now()]);
+        }
+
+        // "Programar revisões" — creates a review task for each interval tag.
+        if (! empty($data['review_intervals'])) {
+            $title = isset($data['topic_id']) ? Topic::find($data['topic_id'])?->name : null;
+            $title ??= $item->subject?->name ?? 'Revisão';
+            $baseDate = $studiedAt->copy()->startOfDay();
+
+            foreach ($data['review_intervals'] as $days) {
+                StudyTask::create([
+                    'user_id' => $plan->user_id,
+                    'study_cycle_id' => $plan->id,
+                    'subject_id' => $item->subject_id,
+                    'topic_id' => $data['topic_id'] ?? null,
+                    'title' => $title,
+                    'type' => StudyTask::TYPE_REVIEW,
+                    'format' => 'pdf',
+                    'planned_minutes' => 45,
+                    'scheduled_for' => $baseDate->copy()->addDays($days),
+                    'position' => 0,
+                    'status' => 'pending',
+                ]);
+            }
+        }
+
+        return back()->with('success', 'Estudo registrado.');
     }
 }
