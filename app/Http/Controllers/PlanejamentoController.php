@@ -107,6 +107,7 @@ class PlanejamentoController extends Controller
                     ->map(fn ($t, $i) => [
                         'id' => $t->id,
                         'label' => ($i + 1).' '.$t->name,
+                        'minutes' => $t->estimated_minutes,
                     ])
                     ->values(),
                 'recent_sessions' => ($recentBySubject[$item->subject_id] ?? collect())

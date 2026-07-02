@@ -1338,6 +1338,13 @@ function StudyLogModal({ item, subjects, onClose }) {
                                             setTopicQuery(t.label);
                                             setTopicId(t.id);
                                             setShowTopicList(false);
+                                            // Pré-preenche com a duração real da aula; o
+                                            // aluno pode apagar e digitar outro valor.
+                                            if (t.minutes) {
+                                                setHh(String(Math.floor(t.minutes / 60)).padStart(2, '0'));
+                                                setMm(String(t.minutes % 60).padStart(2, '0'));
+                                                setSs('00');
+                                            }
                                         }}
                                         className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
                                     >
