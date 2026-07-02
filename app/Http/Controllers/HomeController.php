@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Concerns\ResolvesCurrentUser;
+use App\Models\StudyCycle;
+use App\Models\StudySession;
 use App\Models\StudyTask;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -21,7 +23,8 @@ class HomeController extends Controller
         $user = $this->currentUser($request);
         $today = Carbon::today();
 
-        $planId = $this->activePlan($request)?->id;
+        $plan = $this->activePlan($request);
+        $planId = $plan?->id;
 
         $todayTasks = StudyTask::query()
             ->where('user_id', $user->id)
@@ -39,7 +42,86 @@ class HomeController extends Controller
                 'done' => $goal > 0 && $completed >= $goal,
             ],
             'nextTask' => $this->nextTask($user->id, $planId),
+            'weekly' => $this->weeklyProgress($user->id, $plan),
         ]);
+    }
+
+    /**
+     * "Progresso desta semana" — tasks completed this week against the plan's
+     * weekly goal, the current rhythm, and the study streak.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function weeklyProgress(int $userId, ?StudyCycle $plan): ?array
+    {
+        if (! $plan) {
+            return null;
+        }
+
+        $goal = max(1, (int) ($plan->weekly_tasks ?: 7));
+        $idealPerDay = max(1, (int) ($plan->daily_tasks ?: (int) ceil($goal / 7)));
+
+        $done = StudyTask::query()
+            ->where('study_cycle_id', $plan->id)
+            ->where('status', 'done')
+            ->whereBetween('completed_at', [
+                Carbon::now()->startOfWeek(),
+                Carbon::now()->endOfWeek(),
+            ])
+            ->count();
+
+        // Rhythm relative to the ideal pace up to today (Mon=1 .. Sun=7).
+        $expected = min($goal, $idealPerDay * Carbon::now()->dayOfWeekIso);
+        if ($done >= $expected || $done >= $goal) {
+            $rhythm = 'great';
+        } elseif ($done >= $expected * 0.5) {
+            $rhythm = 'ok';
+        } else {
+            $rhythm = 'behind';
+        }
+
+        return [
+            'goal' => $goal,
+            'done' => $done,
+            'remaining' => max(0, $goal - $done),
+            'ideal_per_day' => $idealPerDay,
+            'rhythm' => $rhythm,
+            'streak' => $this->studyStreak($userId),
+        ];
+    }
+
+    /**
+     * Number of consecutive days (ending today, or yesterday as grace) with at
+     * least one logged study session.
+     */
+    private function studyStreak(int $userId): int
+    {
+        $dates = StudySession::query()
+            ->where('user_id', $userId)
+            ->pluck('studied_at')
+            ->map(fn ($d) => Carbon::parse($d)->toDateString())
+            ->unique()
+            ->flip();
+
+        if ($dates->isEmpty()) {
+            return 0;
+        }
+
+        $cursor = Carbon::today();
+
+        // If nothing was logged today but yesterday was, the streak still stands.
+        if (! $dates->has($cursor->toDateString())
+            && $dates->has($cursor->copy()->subDay()->toDateString())) {
+            $cursor = $cursor->subDay();
+        }
+
+        $streak = 0;
+        while ($dates->has($cursor->toDateString())) {
+            $streak++;
+            $cursor->subDay();
+        }
+
+        return $streak;
     }
 
     /**

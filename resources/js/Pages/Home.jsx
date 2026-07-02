@@ -20,6 +20,27 @@ function formatMinutes(m) {
 
 const TYPE_LABELS = { theory: 'Teoria', review: 'Revisão' };
 
+const RHYTHM = {
+    great: {
+        label: 'Ótimo ritmo',
+        emoji: '👊',
+        badge: 'bg-emerald-100 text-emerald-700',
+        bar: 'bg-emerald-500',
+    },
+    ok: {
+        label: 'Bom ritmo',
+        emoji: '👍',
+        badge: 'bg-amber-100 text-amber-700',
+        bar: 'bg-amber-500',
+    },
+    behind: {
+        label: 'Atenção ao ritmo',
+        emoji: '🐢',
+        badge: 'bg-rose-100 text-rose-700',
+        bar: 'bg-rose-500',
+    },
+};
+
 const BoltIcon = ({ className = 'h-5 w-5' }) => (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
@@ -33,8 +54,14 @@ const ClockIcon = ({ className = 'h-4 w-4' }) => (
 );
 
 export default function Home() {
-    const { currentPlan, userPlans = [], auth, focus, nextTask } = usePage().props;
+    const { currentPlan, userPlans = [], auth, focus, nextTask, weekly } = usePage().props;
     const firstName = auth.user?.name?.split(' ')[0];
+
+    const weeklyPct =
+        weekly && weekly.goal > 0
+            ? Math.min(100, Math.round((weekly.done / weekly.goal) * 100))
+            : 0;
+    const rhythm = RHYTHM[weekly?.rhythm] ?? RHYTHM.great;
 
     const pct =
         focus && focus.goal > 0
@@ -191,8 +218,60 @@ export default function Home() {
                         )}
                     </div>
 
-                    {/* Right column — reservada para o próximo card */}
-                    <div className="hidden lg:block" />
+                    {/* Right column — progresso desta semana */}
+                    {weekly && (
+                        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+                            <div className="flex items-center justify-between gap-2">
+                                <h3 className="text-base font-bold text-slate-800">
+                                    Progresso desta semana
+                                </h3>
+                                <span
+                                    className={
+                                        'inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ' +
+                                        rhythm.badge
+                                    }
+                                >
+                                    {rhythm.label} {rhythm.emoji}
+                                </span>
+                            </div>
+
+                            <div className="mt-4 flex items-end justify-between">
+                                <span className="text-sm text-slate-500">
+                                    {weekly.done} de {weekly.goal} tarefas
+                                </span>
+                                <span className="text-lg font-bold text-slate-800">
+                                    {weeklyPct}%
+                                </span>
+                            </div>
+
+                            <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+                                <div
+                                    className={'h-full rounded-full transition-all ' + rhythm.bar}
+                                    style={{ width: `${weeklyPct}%` }}
+                                />
+                            </div>
+
+                            <p className="mt-3 text-sm text-slate-500">
+                                {weekly.remaining > 0
+                                    ? `Faltam ${weekly.remaining} ${
+                                          weekly.remaining === 1 ? 'tarefa' : 'tarefas'
+                                      } para bater a meta`
+                                    : 'Meta da semana batida! 🎉'}
+                            </p>
+                            <p className="text-sm text-slate-500">
+                                Ritmo ideal: {weekly.ideal_per_day}{' '}
+                                {weekly.ideal_per_day === 1 ? 'tarefa' : 'tarefas'}/dia
+                            </p>
+
+                            <div className="mt-4 flex items-center gap-2 border-t border-slate-100 pt-4 text-sm font-medium text-slate-700">
+                                {weekly.streak > 0
+                                    ? `🔥 ${weekly.streak} ${
+                                          weekly.streak === 1 ? 'dia consecutivo' : 'dias consecutivos'
+                                      }`
+                                    : '🔥 Estude hoje para iniciar sua sequência'}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
