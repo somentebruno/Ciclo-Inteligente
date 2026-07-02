@@ -1,15 +1,26 @@
 import AppLayout from '@/Layouts/AppLayout';
 import { Link, usePage } from '@inertiajs/react';
 
+function getGreeting() {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) return 'Bom dia';
+    if (hour >= 12 && hour < 18) return 'Boa tarde';
+    return 'Boa noite';
+}
+
 export default function Home() {
     const { currentPlan, userPlans = [], auth } = usePage().props;
+    const firstName = auth.user?.name?.split(' ')[0];
 
     return (
         <AppLayout title="Início">
             <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-                <h2 className="text-2xl font-bold text-slate-800 mb-4">
-                    Olá, {auth.user?.name?.split(' ')[0]}!
-                </h2>
+                <h1 className="text-2xl font-bold text-slate-800">
+                    {getGreeting()}, {firstName} 👊
+                </h1>
+                <p className="mt-1 mb-4 text-slate-600">
+                    Foque na próxima tarefa para manter o ritmo.
+                </p>
 
                 {currentPlan ? (
                     <>
