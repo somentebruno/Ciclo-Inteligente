@@ -46,8 +46,7 @@ class IbgeAnalistaTiSeeder extends Seeder
                 // per subject, it has no separate "Tópico" grouping level.
                 'topics' => [
                     // Tópico 1 — arts. 3–9 (pontuação, ortografia, morfologia,
-                    // sintaxe, verbos). A numbering gap (58–63) exists in the
-                    // source platform and wasn't provided.
+                    // sintaxe, verbos).
                     ['name' => 'Ortografia e Acentuação', 'minutes' => 24],
                     ['name' => 'Ortografia e Acentuação II', 'minutes' => 30],
                     ['name' => 'Ortografia e Acentuação III', 'minutes' => 23],
@@ -104,6 +103,13 @@ class IbgeAnalistaTiSeeder extends Seeder
                     ['name' => 'Vozes Verbais e SE', 'minutes' => 31],
                     ['name' => 'Vozes Verbais e SE II', 'minutes' => 34],
                     ['name' => 'Vozes Verbais e SE III', 'minutes' => 35],
+                    ['name' => 'Vozes Verbais e SE - Exercícios', 'minutes' => 35],
+                    ['name' => 'Crase', 'minutes' => 22],
+                    ['name' => 'Crase II', 'minutes' => 45],
+                    ['name' => 'Crase III', 'minutes' => 19],
+                    ['name' => 'Crase - Exercícios', 'minutes' => 30],
+                    ['name' => 'Crase - Exercícios II', 'minutes' => 31],
+                    ['name' => 'Casos Especiais de Concordância Nominal e Verbal', 'minutes' => 48],
                     ['name' => 'Casos Especiais de Concordância Nominal e Verbal II', 'minutes' => 47],
                     ['name' => 'Verbos - Conceitos Gerais', 'minutes' => 28],
                     ['name' => 'Verbos - Conceitos Gerais II', 'minutes' => 26],
