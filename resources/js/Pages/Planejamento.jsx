@@ -297,34 +297,35 @@ function FocusMode({ item, onClose }) {
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-slate-950/80" />
 
-                    <div className="relative z-10 flex w-full max-w-3xl overflow-hidden rounded-2xl bg-slate-900 text-white shadow-2xl">
-                        <div className="absolute right-4 top-4 z-20 flex items-center gap-3">
-                            <button
-                                type="button"
-                                onClick={openSettings}
-                                aria-label="Configurações"
-                                className="text-slate-400 transition hover:text-white"
-                            >
-                                <GearIcon />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setMinimized(true)}
-                                aria-label="Minimizar"
-                                className="text-slate-400 transition hover:text-white"
-                            >
-                                <MinimizeIcon />
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setConfirmClose(true)}
-                                aria-label="Fechar"
-                                className="text-slate-400 transition hover:text-white"
-                            >
-                                <CloseXIcon />
-                            </button>
-                        </div>
+                    {/* Controles — fora do modal, no canto superior direito da tela */}
+                    <div className="fixed right-6 top-6 z-20 flex items-center gap-4">
+                        <button
+                            type="button"
+                            onClick={openSettings}
+                            aria-label="Configurações"
+                            className="text-slate-300 transition hover:text-white"
+                        >
+                            <GearIcon />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setMinimized(true)}
+                            aria-label="Minimizar"
+                            className="text-slate-300 transition hover:text-white"
+                        >
+                            <MinimizeIcon />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setConfirmClose(true)}
+                            aria-label="Fechar"
+                            className="text-slate-300 transition hover:text-white"
+                        >
+                            <CloseXIcon />
+                        </button>
+                    </div>
 
+                    <div className="relative z-10 flex w-full max-w-3xl overflow-hidden rounded-2xl bg-slate-900 text-white shadow-2xl">
                         {/* Área central */}
                         <div className="flex-1 p-8 sm:p-10">
                             <div className="flex items-center gap-2 text-sm text-slate-300">
