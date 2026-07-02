@@ -74,12 +74,73 @@ function fmtHM(totalSeconds) {
     return `${pad(Math.floor(mins / 60))}h${pad(mins % 60)}`;
 }
 
-const POMODORO_DURATIONS = { estudo: 25 * 60, curta: 5 * 60, longa: 15 * 60 };
 const POMODORO_STAGES = [
     { key: 'estudo', label: 'Estudo' },
     { key: 'curta', label: 'Pausa Curta' },
     { key: 'longa', label: 'Pausa Longa' },
 ];
+
+const DEFAULT_FOCUS_SETTINGS = {
+    sound: 'Melodia 1',
+    repeat: false,
+    volume: 70,
+    session: 25,
+    curta: 5,
+    longa: 15,
+    cyclesUntilLong: 4,
+    autoStartSessions: false,
+    autoStartBreaks: false,
+};
+
+/** Duração (segundos) de um estágio do Pomodoro, segundo as configurações. */
+function stageSeconds(stage, cfg) {
+    const minutes = stage === 'estudo' ? cfg.session : stage === 'curta' ? cfg.curta : cfg.longa;
+    return Math.max(1, minutes) * 60;
+}
+
+/* --- Ícones dos controles do modo de foco --------------------------------- */
+const CloseXIcon = ({ className = 'h-6 w-6' }) => (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+);
+const GearIcon = ({ className = 'h-5 w-5' }) => (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.6}>
+        <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.164.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.766.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.272-.806.107-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.108v-1.095c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.93l.15-.894z"
+        />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+);
+const MinimizeIcon = ({ className = 'h-5 w-5' }) => (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M9 4.5v3A1.5 1.5 0 017.5 9h-3M15 4.5v3A1.5 1.5 0 0016.5 9h3M9 19.5v-3A1.5 1.5 0 007.5 15h-3M15 19.5v-3a1.5 1.5 0 011.5-1.5h3"
+        />
+    </svg>
+);
+const MaximizeIcon = ({ className = 'h-5 w-5' }) => (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M4.5 9V6A1.5 1.5 0 016 4.5h3M19.5 9V6A1.5 1.5 0 0018 4.5h-3M4.5 15v3A1.5 1.5 0 006 19.5h3M19.5 15v3a1.5 1.5 0 01-1.5 1.5h-3"
+        />
+    </svg>
+);
+const QuestionMarkIcon = ({ className = 'h-7 w-7' }) => (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M12 18h.01"
+        />
+    </svg>
+);
 
 /* --- Modo de foco — ambiente de estudo em tela cheia ---------------------- */
 function FocusMode({ item, onClose }) {
@@ -87,25 +148,31 @@ function FocusMode({ item, onClose }) {
     const [stage, setStage] = useState('estudo');
     const [session, setSession] = useState(1);
     const [running, setRunning] = useState(false);
+    const [minimized, setMinimized] = useState(false);
+    const [confirmClose, setConfirmClose] = useState(false);
+
+    const [settings, setSettings] = useState(DEFAULT_FOCUS_SETTINGS);
+    const [showSettings, setShowSettings] = useState(false);
+    const [draft, setDraft] = useState(DEFAULT_FOCUS_SETTINGS);
 
     // Meta de referência do Cronômetro/Timer: o tempo restante planejado para
     // esta disciplina na volta atual do ciclo (mínimo de 1 minuto).
     const targetSeconds =
         method === 'pomodoro'
-            ? POMODORO_DURATIONS[stage]
+            ? stageSeconds(stage, settings)
             : Math.max(60, (item.planned_minutes - item.studied_minutes) * 60);
 
     // Cronômetro conta progressivamente a partir de 0; Timer e Pomodoro
     // decrescem a partir da meta/duração do estágio.
     const [clock, setClock] = useState(method === 'cronometro' ? 0 : targetSeconds);
 
-    const resetClock = (nextMethod = method, nextStage = stage) => {
-        setRunning(false);
+    const resetClock = (nextMethod = method, nextStage = stage, startRunning = false) => {
+        setRunning(startRunning);
         setClock(
             nextMethod === 'cronometro'
                 ? 0
                 : nextMethod === 'pomodoro'
-                  ? POMODORO_DURATIONS[nextStage]
+                  ? stageSeconds(nextStage, settings)
                   : Math.max(60, (item.planned_minutes - item.studied_minutes) * 60),
         );
     };
@@ -115,18 +182,34 @@ function FocusMode({ item, onClose }) {
         resetClock(m, stage);
     };
 
-    const advancePomodoroStage = () => {
+    const advancePomodoroStage = (auto = false) => {
         let nextStage = 'curta';
         let nextSession = session;
         if (stage === 'estudo') {
-            nextStage = session >= 4 ? 'longa' : 'curta';
+            nextStage = session >= settings.cyclesUntilLong ? 'longa' : 'curta';
         } else {
             nextStage = 'estudo';
             nextSession = stage === 'longa' ? 1 : session + 1;
         }
         setStage(nextStage);
         setSession(nextSession);
-        resetClock('pomodoro', nextStage);
+        const autoStart =
+            auto && (nextStage === 'estudo' ? settings.autoStartSessions : settings.autoStartBreaks);
+        resetClock('pomodoro', nextStage, autoStart);
+    };
+
+    const openSettings = () => {
+        setDraft(settings);
+        setShowSettings(true);
+    };
+
+    const saveSettings = () => {
+        setSettings(draft);
+        setShowSettings(false);
+        if (method === 'pomodoro') {
+            setRunning(false);
+            setClock(stageSeconds(stage, draft));
+        }
     };
 
     useEffect(() => {
@@ -135,7 +218,7 @@ function FocusMode({ item, onClose }) {
             setClock((c) => {
                 if (method === 'cronometro') return c + 1;
                 if (c <= 1) {
-                    setRunning(false);
+                    if (method !== 'pomodoro') setRunning(false);
                     return 0;
                 }
                 return c - 1;
@@ -145,6 +228,15 @@ function FocusMode({ item, onClose }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [running, method]);
 
+    // Ao zerar a contagem regressiva do Pomodoro em execução, avança sozinho
+    // para o próximo estágio (respeitando as opções de início automático).
+    useEffect(() => {
+        if (method === 'pomodoro' && running && clock === 0) {
+            advancePomodoroStage(true);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [clock]);
+
     const pct =
         method === 'cronometro'
             ? Math.min(100, (clock / targetSeconds) * 100)
@@ -153,151 +245,393 @@ function FocusMode({ item, onClose }) {
               : 0;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-950/80" />
+        <>
+            {minimized ? (
+                /* Barra de status inferior */
+                <div className="fixed inset-x-0 bottom-0 z-50 flex h-16 items-center gap-4 border-t border-slate-800 bg-slate-900 px-4 text-white shadow-2xl sm:px-6">
+                    <span className="w-40 shrink-0 truncate text-sm font-medium text-slate-200 sm:w-56">
+                        {item.subject}
+                    </span>
 
-            <div className="relative z-10 flex w-full max-w-3xl overflow-hidden rounded-2xl bg-slate-900 text-white shadow-2xl">
-                <button
-                    type="button"
-                    onClick={onClose}
-                    aria-label="Fechar modo de foco"
-                    className="absolute right-4 top-4 z-20 text-slate-400 transition hover:text-white"
-                >
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                </button>
-
-                {/* Área central */}
-                <div className="flex-1 p-8 sm:p-10">
-                    <div className="flex items-center gap-2 text-sm text-slate-300">
-                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-600 text-xs font-bold text-white">
-                            CI
-                        </span>
-                        <span>
-                            Você está estudando:{' '}
-                            <strong className="font-semibold text-white">{item.subject}</strong>
-                        </span>
-                    </div>
-
-                    {/* Barra dinâmica conforme o método */}
-                    <div className="mt-5">
-                        {method === 'cronometro' && (
-                            <div className="flex items-center gap-3">
-                                <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/15">
-                                    <div
-                                        className="h-full rounded-full bg-white transition-all"
-                                        style={{ width: `${pct}%` }}
-                                    />
-                                </div>
-                                <span className="shrink-0 text-xs tabular-nums text-slate-400">
-                                    {fmtHM(clock)} / {fmtHM(targetSeconds)}
-                                </span>
-                            </div>
-                        )}
-                        {method === 'timer' && (
-                            <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
-                                <div
-                                    className="h-full rounded-full bg-emerald-400 transition-all"
-                                    style={{ width: `${pct}%` }}
-                                />
-                            </div>
-                        )}
-                        {method === 'pomodoro' && (
-                            <div className="h-0 w-full border-t-2 border-dashed border-emerald-400" />
-                        )}
-                    </div>
-
-                    {/* Relógio digital */}
-                    <p className="mt-12 text-center font-mono text-6xl font-bold tabular-nums sm:text-7xl">
-                        {fmtClock(clock)}
-                    </p>
-
-                    {/* Controles */}
-                    <div className="mt-10 flex items-center justify-center gap-5">
+                    <div className="flex flex-1 items-center justify-center gap-4">
                         <button
                             type="button"
                             onClick={() => setRunning((r) => !r)}
                             aria-label={running ? 'Pausar' : 'Play'}
-                            className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-emerald-600 shadow-lg transition hover:scale-105"
+                            className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-emerald-600 transition hover:scale-105"
                         >
-                            {running ? <PauseIcon /> : <FocusPlayIcon />}
+                            {running ? <PauseIcon className="h-4 w-4" /> : <FocusPlayIcon className="h-4 w-4" />}
                         </button>
                         <button
                             type="button"
                             onClick={() => resetClock()}
                             aria-label="Stop"
-                            className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg transition hover:scale-105"
+                            className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-600 text-white transition hover:scale-105"
                         >
-                            <StopIcon />
+                            <StopIcon className="h-4 w-4" />
                         </button>
-                        {method === 'pomodoro' && (
-                            <button
-                                type="button"
-                                onClick={advancePomodoroStage}
-                                aria-label="Avançar"
-                                className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 text-white shadow-lg transition hover:bg-white/20"
-                            >
-                                <SkipIcon />
-                            </button>
-                        )}
+                        <p className="font-mono text-lg font-bold tabular-nums">{fmtClock(clock)}</p>
                     </div>
 
-                    {method === 'pomodoro' && (
-                        <>
-                            <p className="mt-4 text-center text-sm text-slate-400">
-                                Sessão {session} de 4
+                    <div className="flex w-40 shrink-0 items-center justify-end gap-3 sm:w-56">
+                        <button
+                            type="button"
+                            onClick={() => setMinimized(false)}
+                            aria-label="Expandir"
+                            className="text-slate-400 transition hover:text-white"
+                        >
+                            <MaximizeIcon />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setConfirmClose(true)}
+                            aria-label="Fechar"
+                            className="text-slate-400 transition hover:text-white"
+                        >
+                            <CloseXIcon className="h-5 w-5" />
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                /* Overlay em tela cheia */
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-950/80" />
+
+                    <div className="relative z-10 flex w-full max-w-3xl overflow-hidden rounded-2xl bg-slate-900 text-white shadow-2xl">
+                        <div className="absolute right-4 top-4 z-20 flex items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={openSettings}
+                                aria-label="Configurações"
+                                className="text-slate-400 transition hover:text-white"
+                            >
+                                <GearIcon />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setMinimized(true)}
+                                aria-label="Minimizar"
+                                className="text-slate-400 transition hover:text-white"
+                            >
+                                <MinimizeIcon />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setConfirmClose(true)}
+                                aria-label="Fechar"
+                                className="text-slate-400 transition hover:text-white"
+                            >
+                                <CloseXIcon />
+                            </button>
+                        </div>
+
+                        {/* Área central */}
+                        <div className="flex-1 p-8 sm:p-10">
+                            <div className="flex items-center gap-2 text-sm text-slate-300">
+                                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-600 text-xs font-bold text-white">
+                                    CI
+                                </span>
+                                <span>
+                                    Você está estudando:{' '}
+                                    <strong className="font-semibold text-white">{item.subject}</strong>
+                                </span>
+                            </div>
+
+                            {/* Barra dinâmica conforme o método */}
+                            <div className="mt-5">
+                                {method === 'cronometro' && (
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/15">
+                                            <div
+                                                className="h-full rounded-full bg-white transition-all"
+                                                style={{ width: `${pct}%` }}
+                                            />
+                                        </div>
+                                        <span className="shrink-0 text-xs tabular-nums text-slate-400">
+                                            {fmtHM(clock)} / {fmtHM(targetSeconds)}
+                                        </span>
+                                    </div>
+                                )}
+                                {method === 'timer' && (
+                                    <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
+                                        <div
+                                            className="h-full rounded-full bg-emerald-400 transition-all"
+                                            style={{ width: `${pct}%` }}
+                                        />
+                                    </div>
+                                )}
+                                {method === 'pomodoro' && (
+                                    <div className="h-0 w-full border-t-2 border-dashed border-emerald-400" />
+                                )}
+                            </div>
+
+                            {/* Relógio digital */}
+                            <p className="mt-12 text-center font-mono text-6xl font-bold tabular-nums sm:text-7xl">
+                                {fmtClock(clock)}
                             </p>
 
-                            <div className="mt-6 flex items-center justify-center gap-2">
-                                {POMODORO_STAGES.map((s) => (
+                            {/* Controles */}
+                            <div className="mt-10 flex items-center justify-center gap-5">
+                                <button
+                                    type="button"
+                                    onClick={() => setRunning((r) => !r)}
+                                    aria-label={running ? 'Pausar' : 'Play'}
+                                    className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-emerald-600 shadow-lg transition hover:scale-105"
+                                >
+                                    {running ? <PauseIcon /> : <FocusPlayIcon />}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => resetClock()}
+                                    aria-label="Stop"
+                                    className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg transition hover:scale-105"
+                                >
+                                    <StopIcon />
+                                </button>
+                                {method === 'pomodoro' && (
                                     <button
-                                        key={s.key}
                                         type="button"
-                                        onClick={() => {
-                                            setStage(s.key);
-                                            resetClock('pomodoro', s.key);
-                                        }}
+                                        onClick={() => advancePomodoroStage(false)}
+                                        aria-label="Avançar"
+                                        className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 text-white shadow-lg transition hover:bg-white/20"
+                                    >
+                                        <SkipIcon />
+                                    </button>
+                                )}
+                            </div>
+
+                            {method === 'pomodoro' && (
+                                <>
+                                    <p className="mt-4 text-center text-sm text-slate-400">
+                                        Sessão {session} de {settings.cyclesUntilLong}
+                                    </p>
+
+                                    <div className="mt-6 flex items-center justify-center gap-2">
+                                        {POMODORO_STAGES.map((s) => (
+                                            <button
+                                                key={s.key}
+                                                type="button"
+                                                onClick={() => {
+                                                    setStage(s.key);
+                                                    resetClock('pomodoro', s.key);
+                                                }}
+                                                className={
+                                                    'rounded-full px-4 py-1.5 text-xs font-semibold transition ' +
+                                                    (stage === s.key
+                                                        ? 'bg-purple-600 text-white'
+                                                        : 'border border-white/20 bg-slate-950 text-slate-300 hover:border-white/40')
+                                                }
+                                            >
+                                                {s.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Menu lateral — método de contagem */}
+                        <div className="w-44 shrink-0 border-l border-white/10 bg-slate-950/60 p-6">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                                Método
+                            </p>
+                            <div className="mt-4 flex flex-col gap-4">
+                                {METHODS.map((m) => (
+                                    <button
+                                        key={m.key}
+                                        type="button"
+                                        onClick={() => changeMethod(m.key)}
                                         className={
-                                            'rounded-full px-4 py-1.5 text-xs font-semibold transition ' +
-                                            (stage === s.key
-                                                ? 'bg-purple-600 text-white'
-                                                : 'border border-white/20 bg-slate-950 text-slate-300 hover:border-white/40')
+                                            'text-left text-sm font-bold tracking-wide transition ' +
+                                            (method === m.key
+                                                ? 'text-emerald-400'
+                                                : 'text-slate-400 hover:text-slate-200')
                                         }
                                     >
-                                        {s.label}
+                                        {m.label}
                                     </button>
                                 ))}
                             </div>
-                        </>
-                    )}
-                </div>
-
-                {/* Menu lateral — método de contagem */}
-                <div className="w-44 shrink-0 border-l border-white/10 bg-slate-950/60 p-6">
-                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                        Método
-                    </p>
-                    <div className="mt-4 flex flex-col gap-4">
-                        {METHODS.map((m) => (
-                            <button
-                                key={m.key}
-                                type="button"
-                                onClick={() => changeMethod(m.key)}
-                                className={
-                                    'text-left text-sm font-bold tracking-wide transition ' +
-                                    (method === m.key
-                                        ? 'text-emerald-400'
-                                        : 'text-slate-400 hover:text-slate-200')
-                                }
-                            >
-                                {m.label}
-                            </button>
-                        ))}
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
+            )}
+
+            {/* Modal — Configurações */}
+            {showSettings && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-950/60" onClick={() => setShowSettings(false)} />
+                    <div className="relative z-10 max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 text-slate-800 shadow-2xl">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-lg font-bold text-slate-900">Configurações</h2>
+                            <button
+                                type="button"
+                                onClick={() => setShowSettings(false)}
+                                aria-label="Fechar"
+                                className="text-slate-400 transition hover:text-slate-600"
+                            >
+                                <CloseXIcon className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <label className="mt-5 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Som do timer
+                        </label>
+                        <select
+                            value={draft.sound}
+                            onChange={(e) => setDraft((d) => ({ ...d, sound: e.target.value }))}
+                            className="mt-1.5 w-full rounded-lg border-slate-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                        >
+                            {Array.from({ length: 10 }, (_, i) => `Melodia ${i + 1}`).map((m) => (
+                                <option key={m} value={m}>
+                                    {m}
+                                </option>
+                            ))}
+                        </select>
+
+                        <label className="mt-4 flex items-center gap-2 text-sm font-medium text-slate-700">
+                            <input
+                                type="checkbox"
+                                checked={draft.repeat}
+                                onChange={(e) => setDraft((d) => ({ ...d, repeat: e.target.checked }))}
+                                className="h-4 w-4 rounded border-slate-300 accent-emerald-500"
+                            />
+                            Repetir
+                        </label>
+
+                        <label className="mt-4 block text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Volume
+                        </label>
+                        <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            value={draft.volume}
+                            onChange={(e) => setDraft((d) => ({ ...d, volume: Number(e.target.value) }))}
+                            className="mt-1.5 w-full accent-emerald-500"
+                        />
+
+                        <hr className="my-5 border-slate-100" />
+
+                        <h3 className="text-sm font-bold text-slate-900">Pomodoro</h3>
+                        <div className="mt-3 grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-xs text-slate-500">Sessão (min)</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={draft.session}
+                                    onChange={(e) => setDraft((d) => ({ ...d, session: Number(e.target.value) }))}
+                                    className="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs text-slate-500">Pausa curta (min)</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={draft.curta}
+                                    onChange={(e) => setDraft((d) => ({ ...d, curta: Number(e.target.value) }))}
+                                    className="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs text-slate-500">Pausa longa (min)</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={draft.longa}
+                                    onChange={(e) => setDraft((d) => ({ ...d, longa: Number(e.target.value) }))}
+                                    className="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs text-slate-500">Ciclos até pausa longa</label>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    value={draft.cyclesUntilLong}
+                                    onChange={(e) =>
+                                        setDraft((d) => ({ ...d, cyclesUntilLong: Number(e.target.value) }))
+                                    }
+                                    className="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                                />
+                            </div>
+                        </div>
+
+                        <label className="mt-4 flex items-center gap-2 text-sm font-medium text-slate-700">
+                            <input
+                                type="checkbox"
+                                checked={draft.autoStartSessions}
+                                onChange={(e) =>
+                                    setDraft((d) => ({ ...d, autoStartSessions: e.target.checked }))
+                                }
+                                className="h-4 w-4 rounded border-slate-300 accent-emerald-500"
+                            />
+                            Iniciar sessões automaticamente
+                        </label>
+                        <label className="mt-2 flex items-center gap-2 text-sm font-medium text-slate-700">
+                            <input
+                                type="checkbox"
+                                checked={draft.autoStartBreaks}
+                                onChange={(e) => setDraft((d) => ({ ...d, autoStartBreaks: e.target.checked }))}
+                                className="h-4 w-4 rounded border-slate-300 accent-emerald-500"
+                            />
+                            Iniciar pausas automaticamente
+                        </label>
+
+                        <div className="mt-6 flex items-center justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setShowSettings(false)}
+                                className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={saveSettings}
+                                className="rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+                            >
+                                Salvar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal — confirmação de encerramento */}
+            {confirmClose && (
+                <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-950/60" />
+                    <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl">
+                        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white">
+                            <QuestionMarkIcon />
+                        </div>
+                        <h2 className="mt-4 text-lg font-bold text-slate-900">Encerrar Cronômetro</h2>
+                        <p className="mt-2 text-sm text-slate-500">
+                            Deseja descartar o planejamento em andamento? O cronômetro irá se encerrar.
+                        </p>
+                        <div className="mt-6 flex items-center justify-center gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setConfirmClose(false)}
+                                className="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={onClose}
+                                className="flex-1 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-purple-700"
+                            >
+                                Sim
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 }
 
@@ -655,7 +989,8 @@ export default function Planejamento({ cycle, nextTaskId }) {
                 </div>
             </div>
 
-            {/* Botão flutuante — cronômetro */}
+            {/* Botão flutuante — cronômetro (oculto durante o modo de foco, que já tem o seu) */}
+            {!focusItem && (
             <Link
                 href={nextTaskId ? `/tarefas/${nextTaskId}` : '/tarefas'}
                 title="Iniciar sessão de estudo"
@@ -675,6 +1010,7 @@ export default function Planejamento({ cycle, nextTaskId }) {
                     />
                 </svg>
             </Link>
+            )}
 
             {/* Modo de foco */}
             {focusItem && <FocusMode item={focusItem} onClose={() => setFocusItem(null)} />}
