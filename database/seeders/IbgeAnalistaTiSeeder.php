@@ -38,20 +38,111 @@ class IbgeAnalistaTiSeeder extends Seeder
                 'weight' => 6,
                 'difficulty' => 3,
                 'color' => '#3577fb',
+                // Real aulas from the student's prep-course platform (name +
+                // duration), replacing the flat edital items with the actual
+                // lesson-by-lesson content. Grouped below by the edital block
+                // ("Tópico") they come from, then flattened into one ordered
+                // rotation — this app tracks topics as a single flat sequence
+                // per subject, it has no separate "Tópico" grouping level.
                 'topics' => [
-                    'Compreensão e interpretação de texto.',
-                    'Significação das palavras: sinônimos, antônimos, homônimos e parônimos.',
-                    'Pontuação.',
-                    'Estrutura e sequência lógica de frases e parágrafos.',
-                    'Ortografia oficial. Acentuação gráfica.',
-                    'Classes das palavras.',
-                    'Concordância nominal e verbal.',
-                    'Regência nominal e verbal.',
-                    'Emprego dos verbos regulares, irregulares e anômalos. Vozes dos verbos.',
-                    'Emprego dos pronomes.',
-                    'Sintaxe: termos essenciais, integrantes e acessórios da oração.',
-                    'Coesão e coerência (referenciação, substituição, repetição, conectores; tempos e modos verbais).',
-                    'Redação e reescrita de comunicados, ofícios e registros operacionais (clareza, objetividade, padrão formal).',
+                    // Tópico 1 — arts. 3–9 (pontuação, ortografia, morfologia,
+                    // sintaxe, verbos). A numbering gap (58–63) exists in the
+                    // source platform and wasn't provided.
+                    ['name' => 'Ortografia e Acentuação', 'minutes' => 24],
+                    ['name' => 'Ortografia e Acentuação II', 'minutes' => 30],
+                    ['name' => 'Ortografia e Acentuação III', 'minutes' => 23],
+                    ['name' => 'Ortografia e Acentuação - Exercícios', 'minutes' => 32],
+                    ['name' => 'Ortografia e Acentuação IV', 'minutes' => 26],
+                    ['name' => 'Ortografia e Acentuação V', 'minutes' => 31],
+                    ['name' => 'Morfologia', 'minutes' => 35],
+                    ['name' => 'Morfologia II', 'minutes' => 26],
+                    ['name' => 'Morfologia III', 'minutes' => 28],
+                    ['name' => 'Morfologia IV', 'minutes' => 28],
+                    ['name' => 'Morfologia V', 'minutes' => 29],
+                    ['name' => 'Morfologia - Exercícios', 'minutes' => 39],
+                    ['name' => 'Sintaxe do Período Simples', 'minutes' => 28],
+                    ['name' => 'Sintaxe - Sujeito', 'minutes' => 31],
+                    ['name' => 'Sintaxe - Sujeito II', 'minutes' => 24],
+                    ['name' => 'Sintaxe - Sujeito III', 'minutes' => 38],
+                    ['name' => 'Sintaxe - Sujeito IV', 'minutes' => 31],
+                    ['name' => 'Sintaxe - Sujeito Exercícios', 'minutes' => 16],
+                    ['name' => 'Predicação Verbal', 'minutes' => 34],
+                    ['name' => 'Predicação Verbal II', 'minutes' => 32],
+                    ['name' => 'Predicação Verbal III', 'minutes' => 39],
+                    ['name' => 'Predicação Verbal - Exercícios', 'minutes' => 45],
+                    ['name' => 'Termos Ligados ao Nome', 'minutes' => 44],
+                    ['name' => 'Termos Ligados ao Nome II', 'minutes' => 48],
+                    ['name' => 'Termos Ligados Ao Nome - Exercícios', 'minutes' => 32],
+                    ['name' => 'Demais Funções Sintáticas do P.S.', 'minutes' => 16],
+                    ['name' => 'Introdução Ao Período Composto', 'minutes' => 27],
+                    ['name' => 'Orações Subordinadas Substantivas', 'minutes' => 29],
+                    ['name' => 'Orações Subordinadas Substantivas II', 'minutes' => 26],
+                    ['name' => 'Orações Subordinadas Substantivas - Exercícios', 'minutes' => 27],
+                    ['name' => 'Orações Subordinadas Adjetivas', 'minutes' => 40],
+                    ['name' => 'Orações Subordinadas Adjetivas II', 'minutes' => 33],
+                    ['name' => 'Orações Subordinadas Adjetivas III', 'minutes' => 28],
+                    ['name' => 'Orações Subordinadas Adjetivas IV', 'minutes' => 24],
+                    ['name' => 'Orações Subordinadas Adjetivas V', 'minutes' => 19],
+                    ['name' => 'Orações Subordinadas Adjetivas - Exercícios', 'minutes' => 50],
+                    ['name' => 'Orações Subordinadas Adverbiais', 'minutes' => 35],
+                    ['name' => 'Orações Coordenadas', 'minutes' => 27],
+                    ['name' => 'Orações Subordinadas Adverbiais e Orações Coordenadas - Exercícios', 'minutes' => 36],
+                    ['name' => 'Orações Reduzidas e Justapostas', 'minutes' => 36],
+                    ['name' => 'Orações Reduzidas e Justapostas II', 'minutes' => 51],
+                    ['name' => 'Pontuação', 'minutes' => 35],
+                    ['name' => 'Pontuação II', 'minutes' => 33],
+                    ['name' => 'Pontuação III', 'minutes' => 44],
+                    ['name' => 'Pontuação IV', 'minutes' => 36],
+                    ['name' => 'Pontuação V', 'minutes' => 22],
+                    ['name' => 'Pontuação - Exercícios', 'minutes' => 36],
+                    ['name' => 'Pontuação - Exercícios II', 'minutes' => 26],
+                    ['name' => 'Pronomes Pessoais', 'minutes' => 31],
+                    ['name' => 'Pronomes Pessoais II', 'minutes' => 34],
+                    ['name' => 'Colocação Pronominal', 'minutes' => 35],
+                    ['name' => 'Colocação Pronominal II', 'minutes' => 32],
+                    ['name' => 'Pronomes Pessoais e Colocação Pronominal - Exercícios', 'minutes' => 31],
+                    ['name' => 'Vozes Verbais e SE', 'minutes' => 31],
+                    ['name' => 'Vozes Verbais e SE II', 'minutes' => 34],
+                    ['name' => 'Vozes Verbais e SE III', 'minutes' => 35],
+                    ['name' => 'Casos Especiais de Concordância Nominal e Verbal II', 'minutes' => 47],
+                    ['name' => 'Verbos - Conceitos Gerais', 'minutes' => 28],
+                    ['name' => 'Verbos - Conceitos Gerais II', 'minutes' => 26],
+                    ['name' => 'Conjugação dos Verbos Regulares', 'minutes' => 23],
+                    ['name' => 'Conjugação dos Verbos Regulares II', 'minutes' => 22],
+                    ['name' => 'Conjugação dos Verbos Irregulares', 'minutes' => 27],
+                    ['name' => 'Tempos Compostos e Particípios', 'minutes' => 24],
+                    ['name' => 'Empregos dos Tempos em Modos Verbais', 'minutes' => 20],
+                    ['name' => 'Correlação dos Tempos em Modos Verbais', 'minutes' => 19],
+                    ['name' => 'Verbos - Exercícios', 'minutes' => 27],
+                    ['name' => 'Verbos - Exercícios II', 'minutes' => 15],
+
+                    // Tópico 2 — arts. 1, 2 e 12 (interpretação, semântica, coesão).
+                    ['name' => 'Reconhecimento de Tipos e Gêneros Textuais I', 'minutes' => 28],
+                    ['name' => 'Reconhecimento de Tipos e Gêneros Textuais II', 'minutes' => 30],
+                    ['name' => 'Reconhecimento de Tipos e Gêneros Textuais III', 'minutes' => 30],
+                    ['name' => 'Reconhecimento de Tipos e Gêneros Textuais IV', 'minutes' => 28],
+                    ['name' => 'Significação de Palavras', 'minutes' => 29],
+                    ['name' => 'Significação de Palavras II', 'minutes' => 30],
+                    ['name' => 'Mecanismos de Coesão Textual', 'minutes' => 30],
+                    ['name' => 'Mecanismos de Coesão Textual II', 'minutes' => 29],
+                    ['name' => 'Mecanismos de Coesão Textual III', 'minutes' => 30],
+                    ['name' => 'Mecanismos de Coesão Textual IV', 'minutes' => 30],
+                    ['name' => 'Mecanismos de Coesão Textual V', 'minutes' => 28],
+                    ['name' => 'Mecanismos de Coesão Textual VI', 'minutes' => 31],
+
+                    // Tópico 3 — art. 13 (redação oficial).
+                    ['name' => 'Panorama e Conceito', 'minutes' => 33],
+                    ['name' => 'Atributos da Redação Oficial', 'minutes' => 29],
+                    ['name' => 'Atributos da Redação Oficial II', 'minutes' => 26],
+                    ['name' => 'Atributos da Redação Oficial III', 'minutes' => 31],
+                    ['name' => 'Emprego dos Pronomes de Tratamento', 'minutes' => 39],
+                    ['name' => 'Correspondências Oficiais - O Padrão Ofício', 'minutes' => 30],
+                    ['name' => 'O Padrão Ofício: Partes do Documento', 'minutes' => 32],
+                    ['name' => 'O Padrão Ofício: Partes do Documento II', 'minutes' => 36],
+                    ['name' => 'Exposição de Motivos', 'minutes' => 27],
+                    ['name' => 'Mensagem', 'minutes' => 27],
+                    ['name' => 'Correio Eletrônico', 'minutes' => 32],
+                    ['name' => 'Exercícios Gerais', 'minutes' => 33],
                 ],
             ],
             [
@@ -142,12 +233,18 @@ class IbgeAnalistaTiSeeder extends Seeder
                 ]
             );
 
-            foreach ($data['topics'] as $i => $topicName) {
-                Topic::firstOrCreate(
-                    ['subject_id' => $subject->id, 'name' => $topicName],
-                    ['order' => $i, 'estimated_minutes' => 45]
+            $names = collect($data['topics'])->map(fn ($t) => is_array($t) ? $t['name'] : $t);
+
+            foreach ($data['topics'] as $i => $topic) {
+                Topic::updateOrCreate(
+                    ['subject_id' => $subject->id, 'name' => is_array($topic) ? $topic['name'] : $topic],
+                    ['order' => $i, 'estimated_minutes' => is_array($topic) ? $topic['minutes'] : 45]
                 );
             }
+
+            // The seeder is the single source of truth for topics: drop ones
+            // no longer listed (e.g. replaced by real aulas from the prep course).
+            Topic::where('subject_id', $subject->id)->whereNotIn('name', $names)->delete();
         }
     }
 }
