@@ -136,9 +136,9 @@ export default function Home() {
                     </div>
                 )}
 
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    {/* Left column — próxima tarefa */}
-                    <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="grid grid-cols-1 gap-4 lg:grid-cols-10">
+                    {/* Left column — próxima tarefa (70%) */}
+                    <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm lg:col-span-7">
                         {nextTask ? (
                             <>
                                 <div className="flex items-center gap-2 text-brand-600">
@@ -218,8 +218,8 @@ export default function Home() {
                         )}
                     </div>
 
-                    {/* Right column — progresso desta semana */}
-                    <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+                    {/* Right column — progresso desta semana (30%) */}
+                    <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm lg:col-span-3">
                         {weekly ? (
                             <>
                                 <div className="flex items-center justify-between gap-2">
