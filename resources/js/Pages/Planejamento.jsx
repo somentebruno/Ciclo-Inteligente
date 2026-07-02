@@ -1,0 +1,287 @@
+import AppLayout from '@/Layouts/AppLayout';
+import { Link, router } from '@inertiajs/react';
+
+/** Minutes → "10h57min" / "12h" / "45min". */
+function fmt(m) {
+    const total = Math.max(0, Math.round(m || 0));
+    const h = Math.floor(total / 60);
+    const min = total % 60;
+    if (h && min) return `${h}h${String(min).padStart(2, '0')}min`;
+    if (h) return `${h}h`;
+    return `${min}min`;
+}
+
+/* --- Donut (anel multicamadas) ------------------------------------------ */
+function polar(cx, cy, r, deg) {
+    const rad = ((deg - 90) * Math.PI) / 180;
+    return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
+}
+
+function arcPath(cx, cy, r, a0, a1) {
+    // A full 360° arc collapses (start == end); cap just below.
+    const end = Math.min(a1, a0 + 359.98);
+    const [x0, y0] = polar(cx, cy, r, a0);
+    const [x1, y1] = polar(cx, cy, r, end);
+    const large = end - a0 > 180 ? 1 : 0;
+    return `M ${x0} ${y0} A ${r} ${r} 0 ${large} 1 ${x1} ${y1}`;
+}
+
+function CycleDonut({ sequence, totalLabel }) {
+    const size = 280;
+    const c = size / 2;
+    const planned = sequence.reduce((s, i) => s + i.planned_minutes, 0);
+
+    if (!planned) return null;
+
+    const gap = sequence.length > 1 ? 3 : 0; // degrees between segments
+    const usable = 360 - gap * sequence.length;
+
+    let angle = 0;
+    const segments = sequence.map((item) => {
+        const sweep = (item.planned_minutes / planned) * usable;
+        const a0 = angle;
+        const a1 = angle + sweep;
+        angle = a1 + gap;
+        const studiedSweep = sweep * Math.min(1, item.studied_minutes / item.planned_minutes);
+        return { ...item, a0, a1, studiedSweep };
+    });
+
+    return (
+        <svg viewBox={`0 0 ${size} ${size}`} className="mx-auto w-full max-w-[320px]">
+            {segments.map((s) => (
+                <g key={s.id}>
+                    {/* Outer ring — planned share per subject (solid) */}
+                    <path
+                        d={arcPath(c, c, 108, s.a0, s.a1)}
+                        stroke={s.color}
+                        strokeWidth="30"
+                        fill="none"
+                        strokeLinecap="butt"
+                    />
+                    {/* Inner track — pastel */}
+                    <path
+                        d={arcPath(c, c, 80, s.a0, s.a1)}
+                        stroke={s.color}
+                        strokeOpacity="0.2"
+                        strokeWidth="12"
+                        fill="none"
+                    />
+                    {/* Inner fill — studied portion of the segment */}
+                    {s.studiedSweep > 0 && (
+                        <path
+                            d={arcPath(c, c, 80, s.a0, s.a0 + s.studiedSweep)}
+                            stroke={s.color}
+                            strokeWidth="12"
+                            fill="none"
+                        />
+                    )}
+                </g>
+            ))}
+            <text
+                x={c}
+                y={c - 4}
+                textAnchor="middle"
+                className="fill-slate-900 text-[26px] font-bold"
+            >
+                {totalLabel}
+            </text>
+            <text x={c} y={c + 20} textAnchor="middle" className="fill-slate-400 text-[12px]">
+                por volta do ciclo
+            </text>
+        </svg>
+    );
+}
+
+/* --- Page ---------------------------------------------------------------- */
+export default function Planejamento({ cycle, nextTaskId }) {
+    if (!cycle) {
+        return (
+            <div className="rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm">
+                <p className="text-slate-500">
+                    Crie um plano de estudos para montar o seu ciclo.
+                </p>
+                <Link
+                    href="/planos"
+                    className="mt-3 inline-block rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+                >
+                    Criar meu plano
+                </Link>
+            </div>
+        );
+    }
+
+    const restart = () => {
+        if (confirm('Recomeçar o ciclo? A volta atual será contada como completa e o progresso das disciplinas será zerado.')) {
+            router.post('/planejamento/recomecar', {}, { preserveScroll: true });
+        }
+    };
+
+    const replan = () => {
+        if (confirm('Replanejar a fila de tarefas a partir de hoje? As tarefas pendentes serão reagendadas (o histórico concluído é mantido).')) {
+            router.post('/planejamento/replanejar', {}, { preserveScroll: true });
+        }
+    };
+
+    const remove = () => {
+        if (confirm(`Remover o plano "${cycle.name}"? Esta ação não pode ser desfeita.`)) {
+            router.delete(`/planos/${cycle.id}`);
+        }
+    };
+
+    return (
+        <div className="space-y-4">
+            {/* Ações */}
+            <div className="flex flex-wrap items-center justify-end gap-2">
+                <button
+                    type="button"
+                    onClick={restart}
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+                >
+                    Recomeçar Ciclo
+                </button>
+                <button
+                    type="button"
+                    onClick={replan}
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+                >
+                    Replanejar
+                </button>
+                <button
+                    type="button"
+                    onClick={remove}
+                    className="rounded-lg border border-emerald-600 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50"
+                >
+                    Remover
+                </button>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {/* Metade esquerda */}
+                <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        {/* Ciclos completos */}
+                        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                                Ciclos completos
+                            </p>
+                            <div className="mt-3 flex items-center justify-center">
+                                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-2xl font-bold text-white">
+                                    {cycle.completed_laps}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Progresso */}
+                        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                                Progresso
+                            </p>
+                            <p className="mt-3 text-xl font-bold text-slate-900">
+                                {cycle.pct}%
+                            </p>
+                            <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100">
+                                <div
+                                    className="h-full rounded-full bg-emerald-500 transition-all"
+                                    style={{ width: `${Math.min(100, cycle.pct)}%` }}
+                                />
+                            </div>
+                            <p className="mt-2 text-xs text-slate-500">
+                                {fmt(cycle.studied_minutes)} / {fmt(cycle.planned_minutes)}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Sequência dos estudos */}
+                    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Sequência dos estudos
+                        </p>
+                        <ol className="mt-4 space-y-4">
+                            {cycle.sequence.map((s, i) => (
+                                <li key={s.id}>
+                                    <div className="mb-1 flex items-center justify-between gap-2 text-sm">
+                                        <span className="flex items-center gap-2 font-medium text-slate-700">
+                                            <span className="w-5 text-right text-xs text-slate-300">
+                                                {i + 1}.
+                                            </span>
+                                            <span
+                                                className="h-2.5 w-2.5 rounded-full"
+                                                style={{ backgroundColor: s.color }}
+                                            />
+                                            {s.subject}
+                                        </span>
+                                        <span className="text-xs tabular-nums text-slate-400">
+                                            {fmt(s.studied_minutes)} / {fmt(s.planned_minutes)}
+                                        </span>
+                                    </div>
+                                    <div
+                                        className="ml-7 h-1.5 overflow-hidden rounded-full"
+                                        style={{ backgroundColor: `${s.color}26` }}
+                                    >
+                                        <div
+                                            className="h-full rounded-full transition-all"
+                                            style={{
+                                                width: `${Math.min(100, s.pct)}%`,
+                                                backgroundColor: s.color,
+                                            }}
+                                        />
+                                    </div>
+                                </li>
+                            ))}
+                        </ol>
+                    </div>
+                </div>
+
+                {/* Metade direita — Ciclo */}
+                <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                        Ciclo
+                    </p>
+                    <div className="flex flex-1 items-center justify-center py-6">
+                        <CycleDonut
+                            sequence={cycle.sequence}
+                            totalLabel={fmt(cycle.planned_minutes)}
+                        />
+                    </div>
+                    <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
+                        {cycle.sequence.map((s) => (
+                            <span
+                                key={s.id}
+                                className="inline-flex items-center gap-1.5 text-xs text-slate-500"
+                            >
+                                <span
+                                    className="h-2 w-2 rounded-full"
+                                    style={{ backgroundColor: s.color }}
+                                />
+                                {s.subject}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Botão flutuante — cronômetro */}
+            <Link
+                href={nextTaskId ? `/tarefas/${nextTaskId}` : '/tarefas'}
+                title="Iniciar sessão de estudo"
+                className="fixed bottom-8 right-8 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg transition hover:bg-emerald-700 hover:shadow-xl"
+            >
+                <svg
+                    className="h-7 w-7"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.8}
+                >
+                    <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M12 6v6l3.5 2M9 2.25h6M12 4.5a8.25 8.25 0 108.25 8.25A8.25 8.25 0 0012 4.5z"
+                    />
+                </svg>
+            </Link>
+        </div>
+    );
+}
+
+Planejamento.layout = (page) => <AppLayout title="Planejamento">{page}</AppLayout>;

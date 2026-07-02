@@ -4,6 +4,7 @@ use App\Http\Controllers\DesempenhoController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PlanController;
+use App\Http\Controllers\PlanejamentoController;
 use App\Http\Controllers\PlannerController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TaskController;
@@ -38,6 +39,11 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/revisoes', [PlannerController::class, 'revisoes'])->name('revisoes');
     Route::get('/plano-semanal', [PlannerController::class, 'plano'])->name('plano-semanal');
+
+    // Planejamento — ciclo de estudos
+    Route::get('/planejamento', [PlanejamentoController::class, 'index'])->name('planejamento');
+    Route::post('/planejamento/recomecar', [PlanejamentoController::class, 'restart'])->name('planejamento.restart');
+    Route::post('/planejamento/replanejar', [PlanejamentoController::class, 'replan'])->name('planejamento.replan');
 
     Route::get('/planos', [PlanController::class, 'index'])->name('planos');
     Route::get('/planos/novo', [PlanController::class, 'create'])->name('planos.create');

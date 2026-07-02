@@ -24,6 +24,8 @@ class StudyCycle extends Model
         'weekly_hours',
         'daily_tasks',
         'weekly_tasks',
+        'completed_laps',
+        'lap_started_at',
         'status',
         'generated_at',
         'onboarding_completed_at',
@@ -35,6 +37,8 @@ class StudyCycle extends Model
             'weekly_hours' => 'integer',
             'daily_tasks' => 'integer',
             'weekly_tasks' => 'integer',
+            'completed_laps' => 'integer',
+            'lap_started_at' => 'datetime',
             'generated_at' => 'datetime',
             'onboarding_completed_at' => 'datetime',
         ];
