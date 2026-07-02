@@ -18,6 +18,26 @@ function formatMinutes(m) {
     return `${min}min`;
 }
 
+/** Minutes → "2h 15min" / "2h" / "45min" / "0min". */
+function formatDuration(m) {
+    const total = m || 0;
+    const h = Math.floor(total / 60);
+    const min = total % 60;
+    if (h && min) return `${h}h ${min}min`;
+    if (h) return `${h}h`;
+    return `${min}min`;
+}
+
+function StatCell({ label, value, sub }) {
+    return (
+        <div className="flex flex-col items-center justify-center rounded-lg border border-slate-200 bg-slate-50 p-3 text-center">
+            <p className="text-[11px] text-slate-400">{label}</p>
+            <p className="mt-0.5 text-lg font-bold text-slate-800">{value}</p>
+            <p className="text-[11px] text-slate-400">{sub}</p>
+        </div>
+    );
+}
+
 const TYPE_LABELS = { theory: 'Teoria', review: 'Revisão' };
 
 const RHYTHM = {
@@ -54,7 +74,7 @@ const ClockIcon = ({ className = 'h-4 w-4' }) => (
 );
 
 export default function Home() {
-    const { currentPlan, userPlans = [], auth, focus, nextTask, weekly, week } =
+    const { currentPlan, userPlans = [], auth, focus, nextTask, weekly, week, stats } =
         usePage().props;
     const firstName = auth.user?.name?.split(' ')[0];
 
@@ -373,8 +393,33 @@ export default function Home() {
                             </div>
                         </div>
 
-                        {/* Right column — reservada para o próximo card */}
-                        <div className="hidden lg:block lg:col-span-3" />
+                        {/* Right column — estatísticas (30%) */}
+                        {stats && (
+                            <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm lg:col-span-3">
+                                <div className="grid h-full grid-cols-2 grid-rows-2 gap-3">
+                                    <StatCell
+                                        label="Horas estudadas"
+                                        value={formatDuration(stats.minutes_week)}
+                                        sub="Esta semana"
+                                    />
+                                    <StatCell
+                                        label="Taxa de acerto"
+                                        value={stats.accuracy != null ? `${stats.accuracy}%` : '—'}
+                                        sub="Geral"
+                                    />
+                                    <StatCell
+                                        label="Sequência atual"
+                                        value={stats.streak}
+                                        sub="Dias seguidos"
+                                    />
+                                    <StatCell
+                                        label="Concluídas"
+                                        value={stats.completed_week}
+                                        sub="Esta semana"
+                                    />
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 

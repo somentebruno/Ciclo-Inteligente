@@ -44,7 +44,49 @@ class HomeController extends Controller
             'nextTask' => $this->nextTask($user->id, $planId),
             'weekly' => $this->weeklyProgress($user->id, $plan),
             'week' => $this->weekOverview($user->id, $planId, $today),
+            'stats' => $planId ? $this->quadrantStats($user->id, $planId) : null,
         ]);
+    }
+
+    /**
+     * The 2×2 stats quadrant beside "Minha semana": hours studied this week,
+     * overall accuracy, current streak and tasks completed this week.
+     *
+     * @return array<string, mixed>
+     */
+    private function quadrantStats(int $userId, int $planId): array
+    {
+        $weekStart = Carbon::now()->startOfWeek();
+        $weekEnd = Carbon::now()->endOfWeek();
+
+        $sessions = fn () => StudySession::query()
+            ->where('user_id', $userId)
+            ->where('study_cycle_id', $planId);
+
+        $minutesWeek = (int) $sessions()
+            ->whereBetween('studied_at', [$weekStart, $weekEnd])
+            ->sum('duration_minutes');
+
+        $totals = $sessions()
+            ->selectRaw('COALESCE(SUM(questions_total), 0) as qt, COALESCE(SUM(questions_correct), 0) as qc')
+            ->first();
+        $accuracy = $totals && $totals->qt > 0
+            ? (int) round($totals->qc / $totals->qt * 100)
+            : null;
+
+        $completedWeek = StudyTask::query()
+            ->where('user_id', $userId)
+            ->where('study_cycle_id', $planId)
+            ->where('status', 'done')
+            ->whereBetween('completed_at', [$weekStart, $weekEnd])
+            ->count();
+
+        return [
+            'minutes_week' => $minutesWeek,
+            'accuracy' => $accuracy,
+            'streak' => $this->studyStreak($userId),
+            'completed_week' => $completedWeek,
+        ];
     }
 
     /**
