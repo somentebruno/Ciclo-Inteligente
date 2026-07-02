@@ -54,7 +54,8 @@ const ClockIcon = ({ className = 'h-4 w-4' }) => (
 );
 
 export default function Home() {
-    const { currentPlan, userPlans = [], auth, focus, nextTask, weekly } = usePage().props;
+    const { currentPlan, userPlans = [], auth, focus, nextTask, weekly, week } =
+        usePage().props;
     const firstName = auth.user?.name?.split(' ')[0];
 
     const weeklyPct =
@@ -338,6 +339,90 @@ export default function Home() {
                     </>
                     )}
                 </div>
+
+                {week && (
+                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-10">
+                        {/* Left column — minha semana (70%) */}
+                        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm lg:col-span-7">
+                            <div className="flex items-center justify-between gap-2">
+                                <h3 className="text-base font-bold text-slate-800">
+                                    Minha semana
+                                </h3>
+                                <Link
+                                    href="/plano-semanal"
+                                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:border-brand-300 hover:text-brand-700"
+                                >
+                                    Ver plano completo →
+                                </Link>
+                            </div>
+
+                            <div className="mt-4 grid grid-cols-7 gap-2">
+                                {week.map((d, i) => {
+                                    const dayPct =
+                                        d.total > 0
+                                            ? Math.round((d.done / d.total) * 100)
+                                            : 0;
+                                    return (
+                                        <div
+                                            key={i}
+                                            className={
+                                                'flex h-[104px] flex-col items-center justify-between rounded-lg border p-2 text-center ' +
+                                                (d.is_today
+                                                    ? 'border-brand-300 bg-brand-50'
+                                                    : 'border-slate-200')
+                                            }
+                                        >
+                                            <span
+                                                className={
+                                                    'text-xs font-semibold ' +
+                                                    (d.is_today
+                                                        ? 'text-brand-700'
+                                                        : 'text-slate-400')
+                                                }
+                                            >
+                                                {d.weekday}
+                                            </span>
+
+                                            {d.is_today ? (
+                                                <>
+                                                    <div>
+                                                        <p className="text-sm font-bold text-slate-800">
+                                                            {d.done} de {d.total}
+                                                        </p>
+                                                        <p className="text-[10px] text-slate-400">
+                                                            concluídas
+                                                        </p>
+                                                    </div>
+                                                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+                                                        <div
+                                                            className="h-full rounded-full bg-brand-500 transition-all"
+                                                            style={{ width: `${dayPct}%` }}
+                                                        />
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div>
+                                                        <p className="text-lg font-bold text-slate-800">
+                                                            {d.total}
+                                                        </p>
+                                                        <p className="text-[10px] text-slate-400">
+                                                            {d.total === 1 ? 'tarefa' : 'tarefas'}
+                                                        </p>
+                                                    </div>
+                                                    <span className="h-1.5 w-full" />
+                                                </>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+
+                        {/* Right column — reservada para o próximo card */}
+                        <div className="hidden lg:block lg:col-span-3" />
+                    </div>
+                )}
             </div>
         </AppLayout>
     );

@@ -43,7 +43,44 @@ class HomeController extends Controller
             ],
             'nextTask' => $this->nextTask($user->id, $planId),
             'weekly' => $this->weeklyProgress($user->id, $plan),
+            'week' => $this->weekOverview($user->id, $planId, $today),
         ]);
+    }
+
+    /**
+     * "Minha semana" — the next 7 days with task counts and completion, for the
+     * mini day-cards on the Home.
+     *
+     * @return array<int, array<string, mixed>>|null
+     */
+    private function weekOverview(int $userId, ?int $planId, Carbon $today): ?array
+    {
+        if (! $planId) {
+            return null;
+        }
+
+        $tasks = StudyTask::query()
+            ->where('user_id', $userId)
+            ->where('study_cycle_id', $planId)
+            ->whereBetween('scheduled_for', [
+                $today->toDateString(),
+                $today->copy()->addDays(6)->toDateString(),
+            ])
+            ->get(['id', 'status', 'scheduled_for']);
+
+        return collect(range(0, 6))->map(function (int $offset) use ($today, $tasks) {
+            $date = $today->copy()->addDays($offset);
+            $dayTasks = $tasks->filter(fn ($t) => $t->scheduled_for->isSameDay($date));
+
+            return [
+                'weekday' => $offset === 0
+                    ? 'Hoje'
+                    : ucfirst(rtrim($date->isoFormat('ddd'), '.')),
+                'is_today' => $offset === 0,
+                'total' => $dayTasks->count(),
+                'done' => $dayTasks->where('status', 'done')->count(),
+            ];
+        })->all();
     }
 
     /**
