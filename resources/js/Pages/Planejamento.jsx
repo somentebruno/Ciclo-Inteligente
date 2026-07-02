@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Link, router } from '@inertiajs/react';
 
@@ -30,6 +30,276 @@ const HistoryIcon = () => (
 );
 
 const MANUAL_DURATIONS = [15, 30, 45, 60, 90, 120];
+
+/* --- Ícones do modo de foco ----------------------------------------------- */
+const FocusPlayIcon = ({ className = 'h-6 w-6' }) => (
+    <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+        <path d="M8 5.14v13.72a1 1 0 001.5.86l11-6.86a1 1 0 000-1.72l-11-6.86a1 1 0 00-1.5.86z" />
+    </svg>
+);
+const PauseIcon = ({ className = 'h-6 w-6' }) => (
+    <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+        <path d="M7 5.5A1.5 1.5 0 018.5 4h1A1.5 1.5 0 0111 5.5v13a1.5 1.5 0 01-1.5 1.5h-1A1.5 1.5 0 017 18.5v-13zM14.5 4A1.5 1.5 0 0013 5.5v13a1.5 1.5 0 001.5 1.5h1a1.5 1.5 0 001.5-1.5v-13A1.5 1.5 0 0015.5 4h-1z" />
+    </svg>
+);
+const StopIcon = ({ className = 'h-5 w-5' }) => (
+    <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+        <rect x="6" y="6" width="12" height="12" rx="2" />
+    </svg>
+);
+const SkipIcon = ({ className = 'h-5 w-5' }) => (
+    <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+        <path d="M6 5.5a1 1 0 011.53-.85l10 6.5a1 1 0 010 1.7l-10 6.5A1 1 0 016 18.5v-13z" />
+        <rect x="16.5" y="5" width="2" height="14" rx="1" />
+    </svg>
+);
+
+const METHODS = [
+    { key: 'cronometro', label: 'CRONÔMETRO' },
+    { key: 'timer', label: 'TIMER' },
+    { key: 'pomodoro', label: 'POMODORO' },
+];
+
+/** Seconds → "HH:MM:SS". */
+function fmtClock(totalSeconds) {
+    const s = Math.max(0, Math.round(totalSeconds));
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${pad(Math.floor(s / 3600))}:${pad(Math.floor((s % 3600) / 60))}:${pad(s % 60)}`;
+}
+
+/** Seconds → "00h00" (hours + minutes only, no seconds). */
+function fmtHM(totalSeconds) {
+    const mins = Math.floor(Math.max(0, totalSeconds) / 60);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${pad(Math.floor(mins / 60))}h${pad(mins % 60)}`;
+}
+
+const POMODORO_DURATIONS = { estudo: 25 * 60, curta: 5 * 60, longa: 15 * 60 };
+const POMODORO_STAGES = [
+    { key: 'estudo', label: 'Estudo' },
+    { key: 'curta', label: 'Pausa Curta' },
+    { key: 'longa', label: 'Pausa Longa' },
+];
+
+/* --- Modo de foco — ambiente de estudo em tela cheia ---------------------- */
+function FocusMode({ item, onClose }) {
+    const [method, setMethod] = useState('cronometro');
+    const [stage, setStage] = useState('estudo');
+    const [session, setSession] = useState(1);
+    const [running, setRunning] = useState(false);
+
+    // Meta de referência do Cronômetro/Timer: o tempo restante planejado para
+    // esta disciplina na volta atual do ciclo (mínimo de 1 minuto).
+    const targetSeconds =
+        method === 'pomodoro'
+            ? POMODORO_DURATIONS[stage]
+            : Math.max(60, (item.planned_minutes - item.studied_minutes) * 60);
+
+    // Cronômetro conta progressivamente a partir de 0; Timer e Pomodoro
+    // decrescem a partir da meta/duração do estágio.
+    const [clock, setClock] = useState(method === 'cronometro' ? 0 : targetSeconds);
+
+    const resetClock = (nextMethod = method, nextStage = stage) => {
+        setRunning(false);
+        setClock(
+            nextMethod === 'cronometro'
+                ? 0
+                : nextMethod === 'pomodoro'
+                  ? POMODORO_DURATIONS[nextStage]
+                  : Math.max(60, (item.planned_minutes - item.studied_minutes) * 60),
+        );
+    };
+
+    const changeMethod = (m) => {
+        setMethod(m);
+        resetClock(m, stage);
+    };
+
+    const advancePomodoroStage = () => {
+        let nextStage = 'curta';
+        let nextSession = session;
+        if (stage === 'estudo') {
+            nextStage = session >= 4 ? 'longa' : 'curta';
+        } else {
+            nextStage = 'estudo';
+            nextSession = stage === 'longa' ? 1 : session + 1;
+        }
+        setStage(nextStage);
+        setSession(nextSession);
+        resetClock('pomodoro', nextStage);
+    };
+
+    useEffect(() => {
+        if (!running) return undefined;
+        const id = setInterval(() => {
+            setClock((c) => {
+                if (method === 'cronometro') return c + 1;
+                if (c <= 1) {
+                    setRunning(false);
+                    return 0;
+                }
+                return c - 1;
+            });
+        }, 1000);
+        return () => clearInterval(id);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [running, method]);
+
+    const pct =
+        method === 'cronometro'
+            ? Math.min(100, (clock / targetSeconds) * 100)
+            : method === 'timer'
+              ? Math.min(100, ((targetSeconds - clock) / targetSeconds) * 100)
+              : 0;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-950/80" />
+
+            <div className="relative z-10 flex w-full max-w-3xl overflow-hidden rounded-2xl bg-slate-900 text-white shadow-2xl">
+                <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="Fechar modo de foco"
+                    className="absolute right-4 top-4 z-20 text-slate-400 transition hover:text-white"
+                >
+                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+
+                {/* Área central */}
+                <div className="flex-1 p-8 sm:p-10">
+                    <div className="flex items-center gap-2 text-sm text-slate-300">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-brand-600 text-xs font-bold text-white">
+                            CI
+                        </span>
+                        <span>
+                            Você está estudando:{' '}
+                            <strong className="font-semibold text-white">{item.subject}</strong>
+                        </span>
+                    </div>
+
+                    {/* Barra dinâmica conforme o método */}
+                    <div className="mt-5">
+                        {method === 'cronometro' && (
+                            <div className="flex items-center gap-3">
+                                <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/15">
+                                    <div
+                                        className="h-full rounded-full bg-white transition-all"
+                                        style={{ width: `${pct}%` }}
+                                    />
+                                </div>
+                                <span className="shrink-0 text-xs tabular-nums text-slate-400">
+                                    {fmtHM(clock)} / {fmtHM(targetSeconds)}
+                                </span>
+                            </div>
+                        )}
+                        {method === 'timer' && (
+                            <div className="h-1 w-full overflow-hidden rounded-full bg-white/10">
+                                <div
+                                    className="h-full rounded-full bg-emerald-400 transition-all"
+                                    style={{ width: `${pct}%` }}
+                                />
+                            </div>
+                        )}
+                        {method === 'pomodoro' && (
+                            <div className="h-0 w-full border-t-2 border-dashed border-emerald-400" />
+                        )}
+                    </div>
+
+                    {/* Relógio digital */}
+                    <p className="mt-12 text-center font-mono text-6xl font-bold tabular-nums sm:text-7xl">
+                        {fmtClock(clock)}
+                    </p>
+
+                    {/* Controles */}
+                    <div className="mt-10 flex items-center justify-center gap-5">
+                        <button
+                            type="button"
+                            onClick={() => setRunning((r) => !r)}
+                            aria-label={running ? 'Pausar' : 'Play'}
+                            className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-emerald-600 shadow-lg transition hover:scale-105"
+                        >
+                            {running ? <PauseIcon /> : <FocusPlayIcon />}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => resetClock()}
+                            aria-label="Stop"
+                            className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg transition hover:scale-105"
+                        >
+                            <StopIcon />
+                        </button>
+                        {method === 'pomodoro' && (
+                            <button
+                                type="button"
+                                onClick={advancePomodoroStage}
+                                aria-label="Avançar"
+                                className="flex h-14 w-14 items-center justify-center rounded-full bg-white/10 text-white shadow-lg transition hover:bg-white/20"
+                            >
+                                <SkipIcon />
+                            </button>
+                        )}
+                    </div>
+
+                    {method === 'pomodoro' && (
+                        <>
+                            <p className="mt-4 text-center text-sm text-slate-400">
+                                Sessão {session} de 4
+                            </p>
+
+                            <div className="mt-6 flex items-center justify-center gap-2">
+                                {POMODORO_STAGES.map((s) => (
+                                    <button
+                                        key={s.key}
+                                        type="button"
+                                        onClick={() => {
+                                            setStage(s.key);
+                                            resetClock('pomodoro', s.key);
+                                        }}
+                                        className={
+                                            'rounded-full px-4 py-1.5 text-xs font-semibold transition ' +
+                                            (stage === s.key
+                                                ? 'bg-purple-600 text-white'
+                                                : 'border border-white/20 bg-slate-950 text-slate-300 hover:border-white/40')
+                                        }
+                                    >
+                                        {s.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                {/* Menu lateral — método de contagem */}
+                <div className="w-44 shrink-0 border-l border-white/10 bg-slate-950/60 p-6">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        Método
+                    </p>
+                    <div className="mt-4 flex flex-col gap-4">
+                        {METHODS.map((m) => (
+                            <button
+                                key={m.key}
+                                type="button"
+                                onClick={() => changeMethod(m.key)}
+                                className={
+                                    'text-left text-sm font-bold tracking-wide transition ' +
+                                    (method === m.key
+                                        ? 'text-emerald-400'
+                                        : 'text-slate-400 hover:text-slate-200')
+                                }
+                            >
+                                {m.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 /* --- Card de disciplina (Sequência dos estudos) -------------------------- */
 function SubjectCard({ item, index, onStart, onManual }) {
@@ -77,9 +347,7 @@ function SubjectCard({ item, index, onStart, onManual }) {
                     <button
                         type="button"
                         onClick={() => onStart(item)}
-                        disabled={!item.next_task_id}
-                        className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
-                        title={item.next_task_id ? undefined : 'Nenhuma tarefa pendente desta disciplina'}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-100"
                     >
                         <PlayIcon />
                         Iniciar Estudo
@@ -241,9 +509,9 @@ export default function Planejamento({ cycle, nextTaskId }) {
         }
     };
 
-    const startSubject = (item) => {
-        if (item.next_task_id) router.visit(`/tarefas/${item.next_task_id}`);
-    };
+    // Modo de foco — ambiente de estudo em tela cheia
+    const [focusItem, setFocusItem] = useState(null);
+    const startSubject = (item) => setFocusItem(item);
 
     // Modal "Adicionar Estudo Manualmente"
     const [manualItem, setManualItem] = useState(null);
@@ -407,6 +675,9 @@ export default function Planejamento({ cycle, nextTaskId }) {
                     />
                 </svg>
             </Link>
+
+            {/* Modo de foco */}
+            {focusItem && <FocusMode item={focusItem} onClose={() => setFocusItem(null)} />}
 
             {/* Modal — Adicionar Estudo Manualmente */}
             {manualItem && (
