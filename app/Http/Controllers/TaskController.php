@@ -8,6 +8,7 @@ use App\Models\StudyTask;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -103,31 +104,52 @@ class TaskController extends Controller
         $this->authorizeTask($request, $task);
 
         $data = $request->validate([
-            'duration_seconds' => ['nullable', 'integer', 'min:0', 'max:86400'],
+            // 'partial' = logged this session but the lesson isn't finished (task
+            // stays pending); 'full' = the whole theory is done (task completed).
+            'mode' => ['required', Rule::in(['partial', 'full'])],
+            'duration_minutes' => ['nullable', 'integer', 'min:0', 'max:1440'],
+            'stop_point' => ['nullable', 'string', 'max:255'],
+            'questions_total' => ['nullable', 'integer', 'min:0', 'max:10000'],
+            'questions_correct' => ['nullable', 'integer', 'min:0', 'max:10000'],
         ]);
 
         if ($task->isDone()) {
             return redirect()->route('tarefas');
         }
 
-        $seconds = $data['duration_seconds'] ?? 0;
+        $minutes = $data['duration_minutes'] ?? 0;
+        $total = $data['questions_total'] ?? null;
+        $correct = $data['questions_correct'] ?? null;
+        if ($total !== null && $correct !== null) {
+            $correct = min($correct, $total);
+        }
 
-        $task->update([
-            'status' => 'done',
-            'completed_at' => now(),
-            'duration_seconds' => $seconds,
-        ]);
-
-        // Log a study session so it feeds the performance analytics.
+        // Always log the study session so it feeds the performance analytics.
         StudySession::create([
             'user_id' => $task->user_id,
             'study_cycle_id' => $task->study_cycle_id,
             'topic_id' => $task->topic_id,
             'studied_at' => now(),
-            'duration_minutes' => $seconds > 0 ? (int) round($seconds / 60) : $task->planned_minutes,
+            'duration_minutes' => $minutes > 0 ? $minutes : $task->planned_minutes,
+            'questions_total' => $total,
+            'questions_correct' => $correct,
+            'notes' => $data['stop_point'] ?? null,
         ]);
 
-        // Advance to the next pending task, if any.
+        // Partial: keep the task in the queue for a later session.
+        if ($data['mode'] === 'partial') {
+            return redirect()
+                ->route('tarefas')
+                ->with('success', 'Sessão de estudo registrada! A tarefa continua na sua fila.');
+        }
+
+        // Full: mark the task done and advance to the next pending one.
+        $task->update([
+            'status' => 'done',
+            'completed_at' => now(),
+            'duration_seconds' => $minutes * 60,
+        ]);
+
         $next = StudyTask::query()
             ->where('user_id', $task->user_id)
             ->where('study_cycle_id', $task->study_cycle_id)

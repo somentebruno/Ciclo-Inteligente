@@ -30,6 +30,46 @@ function InfoRow({ label, value }) {
     );
 }
 
+const DURATIONS = [
+    { label: '30min', minutes: 30 },
+    { label: '45min', minutes: 45 },
+    { label: '1h', minutes: 60 },
+    { label: '1h15', minutes: 75 },
+    { label: '1h30', minutes: 90 },
+    { label: '1h45', minutes: 105 },
+    { label: '2h', minutes: 120 },
+    { label: '2h30', minutes: 150 },
+    { label: '3h+', minutes: 180 },
+];
+
+function ModeOption({ selected, onSelect, title, desc }) {
+    return (
+        <button
+            type="button"
+            onClick={onSelect}
+            className={
+                'flex w-full gap-3 rounded-lg border p-3 text-left transition ' +
+                (selected
+                    ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500'
+                    : 'border-slate-200 hover:border-brand-300')
+            }
+        >
+            <span
+                className={
+                    'mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ' +
+                    (selected ? 'border-brand-600' : 'border-slate-300')
+                }
+            >
+                {selected && <span className="h-1.5 w-1.5 rounded-full bg-brand-600" />}
+            </span>
+            <span>
+                <span className="block text-sm font-semibold text-slate-800">{title}</span>
+                <span className="mt-0.5 block text-xs text-slate-500">{desc}</span>
+            </span>
+        </button>
+    );
+}
+
 export default function TaskDetails({ task, progress, externalUrl }) {
     const isReview = task.type === 'review';
 
@@ -48,13 +88,50 @@ export default function TaskDetails({ task, progress, externalUrl }) {
 
     const progressPct = progress.total ? Math.round((progress.current / progress.total) * 100) : 0;
 
-    const complete = () => {
+    // Modal "Registrar conclusão"
+    const [showModal, setShowModal] = useState(false);
+    const [mode, setMode] = useState(null); // 'partial' | 'full'
+    const [minutes, setMinutes] = useState(null);
+    const [stopPoint, setStopPoint] = useState('');
+    const [qTotal, setQTotal] = useState('');
+    const [qCorrect, setQCorrect] = useState('');
+
+    const openModal = () => {
         setRunning(false);
+        // Prefill the study time from the running timer, if any.
+        if (seconds > 0 && minutes == null) {
+            const mins = Math.max(1, Math.round(seconds / 60));
+            const nearest = DURATIONS.reduce((a, b) =>
+                Math.abs(b.minutes - mins) < Math.abs(a.minutes - mins) ? b : a,
+            );
+            setMinutes(nearest.minutes);
+        }
+        setShowModal(true);
+    };
+
+    const total = parseInt(qTotal, 10);
+    const correct = parseInt(qCorrect, 10);
+    const aproveitamento =
+        total > 0 && correct >= 0 ? Math.round((Math.min(correct, total) / total) * 100) : null;
+
+    const canSave = !!mode && minutes != null;
+
+    const submit = () => {
+        if (!canSave) return;
         setProcessing(true);
         router.post(
             `/tarefas/${task.id}/concluir`,
-            { duration_seconds: seconds },
-            { onFinish: () => setProcessing(false) },
+            {
+                mode,
+                duration_minutes: minutes ?? 0,
+                stop_point: stopPoint || null,
+                questions_total: qTotal !== '' ? total : null,
+                questions_correct: qCorrect !== '' ? correct : null,
+            },
+            {
+                onSuccess: () => setShowModal(false),
+                onFinish: () => setProcessing(false),
+            },
         );
     };
 
@@ -175,13 +252,143 @@ export default function TaskDetails({ task, progress, externalUrl }) {
 
                 <button
                     type="button"
-                    onClick={complete}
-                    disabled={processing}
-                    className="w-full rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-60"
+                    onClick={openModal}
+                    className="w-full rounded-xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
                 >
-                    {processing ? 'Registrando…' : 'Concluir e continuar'}
+                    Concluir e continuar
                 </button>
             </aside>
+
+            {showModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div
+                        className="absolute inset-0 bg-slate-900/50"
+                        onClick={() => !processing && setShowModal(false)}
+                    />
+                    <div className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-xl">
+                        <h2 className="text-lg font-bold text-slate-900">Registrar conclusão</h2>
+                        <p className="mt-1 text-sm text-slate-400">
+                            {task.subject?.name}
+                            {task.subject ? ' · ' : ''}
+                            {task.title} · Parte {progress.current}/{progress.total}
+                        </p>
+
+                        <hr className="my-4 border-slate-100" />
+
+                        {/* Como deseja concluir */}
+                        <h3 className="text-sm font-bold text-slate-900">
+                            Como deseja concluir esta tarefa?
+                        </h3>
+                        <div className="mt-3 space-y-2">
+                            <ModeOption
+                                selected={mode === 'partial'}
+                                onSelect={() => setMode('partial')}
+                                title="Ainda não terminei a parte teórica"
+                                desc="Registra apenas esta sessão de estudo e mantém as próximas tarefas de estudo teórico."
+                            />
+                            <ModeOption
+                                selected={mode === 'full'}
+                                onSelect={() => setMode('full')}
+                                title="Já concluí toda a teoria da aula"
+                                desc="Use esta opção se você já estudou todo o conteúdo teórico. As próximas partes serão dispensadas e as revisões serão geradas."
+                            />
+                        </div>
+
+                        <hr className="my-4 border-slate-100" />
+
+                        {/* Tempo de estudo */}
+                        <h3 className="text-sm font-bold text-slate-900">Tempo de estudo</h3>
+                        <p className="mt-0.5 text-sm text-slate-500">Quanto tempo você estudou?</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                            {DURATIONS.map((d) => (
+                                <button
+                                    key={d.minutes}
+                                    type="button"
+                                    onClick={() => setMinutes(d.minutes)}
+                                    className={
+                                        'rounded-lg border px-3 py-1.5 text-sm font-medium transition ' +
+                                        (minutes === d.minutes
+                                            ? 'border-brand-600 bg-brand-600 text-white'
+                                            : 'border-slate-300 bg-white text-slate-600 hover:border-brand-400')
+                                    }
+                                >
+                                    {d.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        <hr className="my-4 border-slate-100" />
+
+                        {/* Onde você parou */}
+                        <h3 className="text-sm font-bold text-slate-900">Onde você parou?</h3>
+                        <input
+                            type="text"
+                            value={stopPoint}
+                            onChange={(e) => setStopPoint(e.target.value)}
+                            placeholder="Página 52 ou min do vídeo"
+                            className="mt-2 w-full rounded-lg border-slate-300 text-sm focus:border-brand-500 focus:ring-brand-500"
+                        />
+
+                        <hr className="my-4 border-slate-100" />
+
+                        {/* Desempenho */}
+                        <h3 className="text-sm font-bold text-slate-900">
+                            Desempenho{' '}
+                            <span className="font-bold text-slate-400">(opcional)</span>
+                        </h3>
+                        <div className="mt-3 grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700">
+                                    Quantas questões você fez?
+                                </label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={qTotal}
+                                    onChange={(e) => setQTotal(e.target.value)}
+                                    className="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-brand-500 focus:ring-brand-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700">
+                                    Quantas você acertou?
+                                </label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={qCorrect}
+                                    onChange={(e) => setQCorrect(e.target.value)}
+                                    className="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-brand-500 focus:ring-brand-500"
+                                />
+                                {aproveitamento != null && (
+                                    <p className="mt-1 text-xs font-semibold text-emerald-600">
+                                        {aproveitamento}% de aproveitamento
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="mt-6 flex items-center justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setShowModal(false)}
+                                disabled={processing}
+                                className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-50"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={submit}
+                                disabled={!canSave || processing}
+                                className="rounded-lg bg-brand-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-50"
+                            >
+                                {processing ? 'Salvando…' : 'Salvar e concluir'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
