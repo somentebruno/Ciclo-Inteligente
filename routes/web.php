@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\DesempenhoController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PlanController;
@@ -43,7 +44,7 @@ Route::middleware('auth')->group(function () {
     Route::post('/planos/{cycle}/ativar', [PlanController::class, 'activate'])->name('planos.activate');
     Route::delete('/planos/{cycle}', [PlanController::class, 'destroy'])->name('planos.destroy');
 
-    Route::get('/desempenho', fn () => Inertia::render('Desempenho'))->name('desempenho');
+    Route::get('/desempenho', [DesempenhoController::class, 'index'])->name('desempenho');
 
     // Perfil (Breeze)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
