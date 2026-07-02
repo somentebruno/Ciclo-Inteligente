@@ -634,15 +634,235 @@ function FocusMode({ item, onClose }) {
     );
 }
 
-/* --- Card de disciplina (Sequência dos estudos) -------------------------- */
-function SubjectCard({ item, index, onStart, onManual }) {
-    const [showHistory, setShowHistory] = useState(false);
+/* --- Modal "Últimos Estudos" ---------------------------------------------- */
+const BookmarkIcon = ({ className = 'h-3.5 w-3.5' }) => (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M6.75 4.5h10.5a1.5 1.5 0 011.5 1.5v14.25l-6.75-4.5-6.75 4.5V6a1.5 1.5 0 011.5-1.5z"
+        />
+    </svg>
+);
+const DocumentIcon = ({ className = 'h-3.5 w-3.5' }) => (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M7 3.75h7.5L19 8.25V19.5a1.5 1.5 0 01-1.5 1.5H7a1.5 1.5 0 01-1.5-1.5V5.25A1.5 1.5 0 017 3.75z"
+        />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M14 3.75V8.25H19" />
+    </svg>
+);
+const ClockSmallIcon = ({ className = 'h-3.5 w-3.5' }) => (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l3.5 2M20 12a8 8 0 11-16 0 8 8 0 0116 0z" />
+    </svg>
+);
+const ChatIcon = ({ className = 'h-4 w-4' }) => (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M4.5 12a7.5 7.5 0 1113.5 4.5l1.5 3-3.5-1.2A7.5 7.5 0 014.5 12z"
+        />
+    </svg>
+);
+
+function EmptyStudiesIllustration() {
+    return (
+        <svg viewBox="0 0 160 140" className="h-32 w-32">
+            <rect x="20" y="18" width="80" height="104" rx="10" className="fill-slate-100" />
+            <rect x="46" y="10" width="28" height="14" rx="5" className="fill-emerald-300" />
+            <rect
+                x="56"
+                y="30"
+                width="80"
+                height="104"
+                rx="10"
+                className="fill-white stroke-slate-200"
+                strokeWidth="2"
+            />
+            <rect x="82" y="22" width="28" height="14" rx="5" className="fill-emerald-500" />
+            <rect x="70" y="56" width="52" height="6" rx="3" className="fill-slate-200" />
+            <rect x="70" y="70" width="40" height="6" rx="3" className="fill-slate-200" />
+            <rect x="70" y="84" width="46" height="6" rx="3" className="fill-slate-200" />
+            <rect x="70" y="98" width="30" height="6" rx="3" className="fill-slate-200" />
+        </svg>
+    );
+}
+
+const WEEKDAYS = ['DOM', 'SEG', 'TER', 'QUA', 'QUI', 'SEX', 'SÁB'];
+const MONTHS = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+
+/** "2026-10-12" → "12 OUT/26 SEG". */
+function formatGroupHeader(iso) {
+    const d = new Date(`${iso}T00:00:00`);
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${day} ${MONTHS[d.getMonth()]}/${String(d.getFullYear()).slice(-2)} ${WEEKDAYS[d.getDay()]}`;
+}
+
+/** Minutes → "00:30:00" (HH:MM:SS). */
+function fmtHMS(minutes) {
+    const total = Math.max(0, Math.round(minutes || 0)) * 60;
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${pad(Math.floor(total / 3600))}:${pad(Math.floor((total % 3600) / 60))}:${pad(total % 60)}`;
+}
+
+const CATEGORY_PILL_STYLES = {
+    Revisão: 'bg-red-100 text-red-700',
+    Teoria: 'bg-blue-100 text-blue-700',
+    Questões: 'bg-emerald-100 text-emerald-700',
+};
+const categoryPillClass = (cat) => CATEGORY_PILL_STYLES[cat] ?? 'bg-slate-100 text-slate-600';
+
+function groupSessionsByDate(sessions) {
+    const groups = [];
+    let current = null;
+    for (const s of sessions) {
+        if (!current || current.date !== s.date) {
+            current = { date: s.date, items: [] };
+            groups.push(current);
+        }
+        current.items.push(s);
+    }
+    return groups;
+}
+
+function HistoryRow({ s }) {
+    const [expanded, setExpanded] = useState(false);
+    const wrong =
+        s.questions_total != null && s.questions_correct != null
+            ? s.questions_total - s.questions_correct
+            : null;
 
     return (
-        <li
-            className="group rounded-lg border border-transparent bg-white px-3 py-2.5 transition-all duration-300 ease-out hover:border-blue-200 hover:bg-blue-50"
-            onMouseLeave={() => setShowHistory(false)}
-        >
+        <div className="border-b border-slate-100 py-3 last:border-0">
+            <div className="flex flex-wrap items-center gap-3">
+                <span className="h-8 w-1 shrink-0 rounded-full bg-blue-300" />
+
+                <div className="min-w-[150px]">
+                    <p className="text-sm font-bold uppercase tracking-wide text-slate-800">
+                        {s.subject}
+                    </p>
+                    {s.topic && <p className="text-xs text-slate-400">{s.topic}</p>}
+                </div>
+
+                {s.material && (
+                    <span className="flex items-center gap-1 text-xs text-slate-500">
+                        <BookmarkIcon />
+                        {s.material}
+                    </span>
+                )}
+
+                {s.pages_read != null && (
+                    <span className="flex items-center gap-1 text-xs text-slate-500">
+                        <DocumentIcon />
+                        {s.pages_read}
+                    </span>
+                )}
+
+                <span className="flex items-center gap-1 text-xs tabular-nums text-slate-500">
+                    <ClockSmallIcon />
+                    {fmtHMS(s.duration_minutes)}
+                </span>
+
+                {s.questions_total != null && (
+                    <span className="flex items-center gap-1.5 text-xs font-bold tabular-nums">
+                        <span className="text-emerald-600">{s.questions_correct ?? 0}</span>
+                        <span className="text-red-500">{wrong ?? 0}</span>
+                    </span>
+                )}
+
+                {s.category && (
+                    <span
+                        className={
+                            'rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ' +
+                            categoryPillClass(s.category)
+                        }
+                    >
+                        {s.category}
+                    </span>
+                )}
+
+                <button
+                    type="button"
+                    onClick={() => s.notes && setExpanded((v) => !v)}
+                    className="ml-auto flex items-center gap-1 text-slate-400 transition hover:text-slate-600"
+                >
+                    <ChatIcon />
+                    {s.notes && (
+                        <ChevronDownIcon
+                            className={'h-3.5 w-3.5 transition-transform ' + (expanded ? 'rotate-180' : '')}
+                        />
+                    )}
+                </button>
+            </div>
+
+            {expanded && s.notes && (
+                <p className="ml-5 mt-2 whitespace-pre-line rounded-lg bg-slate-50 p-2 text-xs text-slate-600">
+                    {s.notes}
+                </p>
+            )}
+        </div>
+    );
+}
+
+function RecentSessionsModal({ item, onClose }) {
+    const groups = groupSessionsByDate(item.recent_sessions ?? []);
+    const isEmpty = groups.length === 0;
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/50" onClick={onClose} />
+            <div className="relative z-10 flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+                <div className="flex items-center justify-between border-b border-slate-100 px-6 py-5">
+                    <h2 className="text-lg font-bold text-slate-900">Últimos Estudos</h2>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="Fechar"
+                        className="text-slate-400 transition hover:text-slate-600"
+                    >
+                        <CloseXIcon className="h-5 w-5" />
+                    </button>
+                </div>
+
+                {isEmpty ? (
+                    <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-16">
+                        <EmptyStudiesIllustration />
+                        <p className="max-w-xs text-center text-sm text-slate-400">
+                            Você ainda não tem nenhum registro de estudos, vamos começar?
+                        </p>
+                    </div>
+                ) : (
+                    <div className="flex-1 overflow-y-auto px-6 py-4">
+                        {groups.map((g) => (
+                            <div key={g.date} className="mb-5 last:mb-0">
+                                <div className="flex items-center gap-3">
+                                    <span className="shrink-0 text-xs font-bold uppercase tracking-wider text-slate-500">
+                                        {formatGroupHeader(g.date)}
+                                    </span>
+                                    <span className="h-px flex-1 bg-emerald-100" />
+                                </div>
+                                <div className="mt-1">
+                                    {g.items.map((s) => (
+                                        <HistoryRow key={s.id} s={s} />
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
+
+/* --- Card de disciplina (Sequência dos estudos) -------------------------- */
+function SubjectCard({ item, index, onStart, onManual, onHistory }) {
+    return (
+        <li className="group rounded-lg border border-transparent bg-white px-3 py-2.5 transition-all duration-300 ease-out hover:border-blue-200 hover:bg-blue-50">
             <div className="flex items-center justify-between gap-2 text-sm">
                 <span className="flex items-center gap-2 font-medium text-slate-700">
                     <span className="w-5 text-right text-xs text-slate-300">{index + 1}.</span>
@@ -695,31 +915,13 @@ function SubjectCard({ item, index, onStart, onManual }) {
                     </button>
                     <button
                         type="button"
-                        onClick={() => setShowHistory((v) => !v)}
-                        className={
-                            'flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition hover:bg-blue-100 ' +
-                            (showHistory ? 'bg-blue-100 text-blue-800' : 'text-blue-700')
-                        }
+                        onClick={() => onHistory(item)}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-100"
                     >
                         <HistoryIcon />
                         Ver Últimos Estudos
                     </button>
                 </div>
-
-                {showHistory && (
-                    <div className="mb-2 space-y-1 rounded-md bg-white px-3 py-2 text-xs text-slate-500 shadow-sm">
-                        {item.recent_sessions.length === 0 ? (
-                            <p>Nenhum estudo registrado ainda.</p>
-                        ) : (
-                            item.recent_sessions.map((s) => (
-                                <div key={s.id} className="flex items-center justify-between gap-2">
-                                    <span>{s.date}</span>
-                                    <span className="tabular-nums">{fmt(s.duration_minutes)}</span>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                )}
             </div>
         </li>
     );
@@ -911,20 +1113,24 @@ function StudyLogModal({ item, subjects, onClose }) {
         setNewCatColor(PASTEL_COLORS[0]);
     };
 
+    // Vídeoaulas não têm colunas próprias — viram uma linha legível dentro do
+    // comentário, junto do texto livre digitado pelo aluno.
     const buildNotes = () => {
-        const parts = [`Categoria: ${category}`];
-        if (material.trim()) parts.push(`Material: ${material.trim()}`);
-        const pageRanges = pages
-            .filter((p) => p.start !== '' || p.end !== '')
-            .map((p) => `${p.start || '?'}–${p.end || '?'}`);
-        if (pageRanges.length) parts.push(`Páginas: ${pageRanges.join(', ')}`);
+        const parts = [];
         const videoEntries = videos
             .filter((v) => v.title.trim() || v.start || v.end)
             .map((v) => `${v.title || 'Vídeo'} (${v.start || '00:00'}–${v.end || '00:00'})`);
         if (videoEntries.length) parts.push(`Videoaulas: ${videoEntries.join('; ')}`);
         if (comments.trim()) parts.push(comments.trim());
-        return parts.join('\n');
+        return parts.join('\n') || null;
     };
+
+    const totalPagesRead = pages.reduce((sum, p) => {
+        const start = Number(p.start);
+        const end = Number(p.end);
+        if (!start || !end || end < start) return sum;
+        return sum + (end - start + 1);
+    }, 0);
 
     const durationMinutes = Math.max(
         1,
@@ -940,6 +1146,9 @@ function StudyLogModal({ item, subjects, onClose }) {
                 date: dateChoice === 'hoje' ? todayISO() : dateChoice === 'ontem' ? yesterdayISO() : customDate,
                 duration_minutes: durationMinutes,
                 topic_id: topicId,
+                category,
+                material: material.trim() || null,
+                pages_read: totalPagesRead > 0 ? totalPagesRead : null,
                 questions_total: correct !== '' || wrong !== '' ? (Number(correct) || 0) + (Number(wrong) || 0) : null,
                 questions_correct: correct !== '' ? Number(correct) : null,
                 count_in_plan: countInPlan,
@@ -1484,6 +1693,9 @@ export default function Planejamento({ cycle, nextTaskId }) {
     const [manualItem, setManualItem] = useState(null);
     const openManual = (item) => setManualItem(item);
 
+    // Modal "Últimos Estudos"
+    const [historyItem, setHistoryItem] = useState(null);
+
     return (
         <div className="space-y-4">
             {/* Ações */}
@@ -1560,6 +1772,7 @@ export default function Planejamento({ cycle, nextTaskId }) {
                                     index={i}
                                     onStart={startSubject}
                                     onManual={openManual}
+                                    onHistory={setHistoryItem}
                                 />
                             ))}
                         </ol>
@@ -1627,6 +1840,11 @@ export default function Planejamento({ cycle, nextTaskId }) {
                     subjects={cycle.sequence}
                     onClose={() => setManualItem(null)}
                 />
+            )}
+
+            {/* Modal — Últimos Estudos */}
+            {historyItem && (
+                <RecentSessionsModal item={historyItem} onClose={() => setHistoryItem(null)} />
             )}
         </div>
     );

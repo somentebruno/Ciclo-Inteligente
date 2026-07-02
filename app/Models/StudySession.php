@@ -21,6 +21,10 @@ class StudySession extends Model
         'study_cycle_id',
         'study_cycle_item_id',
         'topic_id',
+        'category',
+        'material',
+        'pages_read',
+        'counts_in_plan',
         'studied_at',
         'duration_minutes',
         'questions_total',
@@ -35,6 +39,8 @@ class StudySession extends Model
             'duration_minutes' => 'integer',
             'questions_total' => 'integer',
             'questions_correct' => 'integer',
+            'pages_read' => 'integer',
+            'counts_in_plan' => 'boolean',
         ];
     }
 

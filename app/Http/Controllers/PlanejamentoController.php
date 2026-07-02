@@ -53,6 +53,7 @@ class PlanejamentoController extends Controller
 
         $fromManual = $baseSessions()
             ->whereNotNull('study_cycle_item_id')
+            ->where('counts_in_plan', true)
             ->join('study_cycle_items', 'study_sessions.study_cycle_item_id', '=', 'study_cycle_items.id')
             ->groupBy('study_cycle_items.subject_id')
             ->selectRaw('study_cycle_items.subject_id as subject_id, SUM(duration_minutes) as minutes')
@@ -79,7 +80,10 @@ class PlanejamentoController extends Controller
             ->whereNotNull('study_sessions.duration_minutes')
             ->leftJoin('topics', 'study_sessions.topic_id', '=', 'topics.id')
             ->leftJoin('study_cycle_items', 'study_sessions.study_cycle_item_id', '=', 'study_cycle_items.id')
-            ->selectRaw('study_sessions.*, COALESCE(topics.subject_id, study_cycle_items.subject_id) as resolved_subject_id')
+            ->selectRaw(
+                'study_sessions.*, topics.name as topic_name, '.
+                'COALESCE(topics.subject_id, study_cycle_items.subject_id) as resolved_subject_id'
+            )
             ->orderByDesc('studied_at')
             ->get()
             ->groupBy('resolved_subject_id');
@@ -106,11 +110,18 @@ class PlanejamentoController extends Controller
                     ])
                     ->values(),
                 'recent_sessions' => ($recentBySubject[$item->subject_id] ?? collect())
-                    ->take(5)
+                    ->take(30)
                     ->map(fn ($s) => [
                         'id' => $s->id,
-                        'date' => Carbon::parse($s->studied_at)->isoFormat('DD/MM/YYYY'),
+                        'date' => Carbon::parse($s->studied_at)->toDateString(),
+                        'subject' => $item->subject?->name ?? '—',
+                        'topic' => $s->topic_name,
+                        'category' => $s->category,
+                        'material' => $s->material,
+                        'pages_read' => $s->pages_read,
                         'duration_minutes' => $s->duration_minutes,
+                        'questions_total' => $s->questions_total,
+                        'questions_correct' => $s->questions_correct,
                         'notes' => $s->notes,
                     ])
                     ->values(),
@@ -187,6 +198,9 @@ class PlanejamentoController extends Controller
             'date' => ['nullable', 'date'],
             'duration_minutes' => ['required', 'integer', 'min:1', 'max:1440'],
             'topic_id' => ['nullable', 'integer', 'exists:topics,id'],
+            'category' => ['nullable', 'string', 'max:100'],
+            'material' => ['nullable', 'string', 'max:255'],
+            'pages_read' => ['nullable', 'integer', 'min:0', 'max:100000'],
             'questions_total' => ['nullable', 'integer', 'min:0', 'max:10000'],
             'questions_correct' => ['nullable', 'integer', 'min:0', 'max:10000'],
             'count_in_plan' => ['boolean'],
@@ -208,15 +222,18 @@ class PlanejamentoController extends Controller
         }
 
         $studiedAt = isset($data['date']) ? Carbon::parse($data['date'])->setTimeFrom(now()) : now();
-        $countInPlan = $data['count_in_plan'] ?? true;
 
         StudySession::create([
             'user_id' => $plan->user_id,
             'study_cycle_id' => $plan->id,
-            // Only attributed to the cycle's progress bars when the student
-            // wants it counted; otherwise it's just a log entry.
-            'study_cycle_item_id' => $countInPlan ? $item->id : null,
+            'study_cycle_item_id' => $item->id,
             'topic_id' => $data['topic_id'] ?? null,
+            'category' => $data['category'] ?? null,
+            'material' => $data['material'] ?? null,
+            'pages_read' => $data['pages_read'] ?? null,
+            // Whether it's attributed to the cycle's progress bars — the
+            // session still stays linked to its subject either way.
+            'counts_in_plan' => $data['count_in_plan'] ?? true,
             'studied_at' => $studiedAt,
             'duration_minutes' => $data['duration_minutes'],
             'questions_total' => $total,
