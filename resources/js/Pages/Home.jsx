@@ -395,8 +395,8 @@ export default function Home() {
 
                         {/* Right column — estatísticas (30%) */}
                         {stats && (
-                            <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm lg:col-span-3">
-                                <div className="grid h-full grid-cols-2 grid-rows-2 gap-3">
+                            <div className="lg:col-span-3">
+                                <div className="grid h-full grid-cols-2 grid-rows-2 gap-4">
                                     <StatCell
                                         label="Horas estudadas"
                                         value={formatDuration(stats.minutes_week)}
