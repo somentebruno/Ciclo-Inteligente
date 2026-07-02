@@ -44,6 +44,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/planejamento', [PlanejamentoController::class, 'index'])->name('planejamento');
     Route::post('/planejamento/recomecar', [PlanejamentoController::class, 'restart'])->name('planejamento.restart');
     Route::post('/planejamento/replanejar', [PlanejamentoController::class, 'replan'])->name('planejamento.replan');
+    Route::post('/planejamento/sessoes', [PlanejamentoController::class, 'storeManualSession'])->name('planejamento.sessoes.store');
 
     Route::get('/planos', [PlanController::class, 'index'])->name('planos');
     Route::get('/planos/novo', [PlanController::class, 'create'])->name('planos.create');

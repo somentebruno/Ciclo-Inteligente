@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Concerns\ResolvesCurrentUser;
+use App\Models\StudyCycleItem;
 use App\Models\StudySession;
 use App\Models\StudyTask;
 use App\Services\TaskSchedulerService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -31,21 +33,60 @@ class PlanejamentoController extends Controller
         $items = $plan->items()->with('subject:id,name,color')->get();
 
         // Minutes studied per subject in the current lap, fed by the study
-        // sessions logged through the completion modal.
+        // sessions logged through the completion modal (linked via topic) and
+        // manual entries logged straight from this page (linked via the cycle
+        // item, since those have no specific topic/aula attached).
         $since = $plan->lap_started_at ?? $plan->created_at;
-        $studiedBySubject = StudySession::query()
+        $baseSessions = fn () => StudySession::query()
             ->where('study_sessions.study_cycle_id', $plan->id)
-            ->where('study_sessions.studied_at', '>=', $since)
+            ->where('study_sessions.studied_at', '>=', $since);
+
+        $fromTasks = $baseSessions()
+            ->whereNotNull('topic_id')
             ->join('topics', 'study_sessions.topic_id', '=', 'topics.id')
             ->groupBy('topics.subject_id')
             ->selectRaw('topics.subject_id as subject_id, SUM(duration_minutes) as minutes')
             ->pluck('minutes', 'subject_id');
 
-        $sequence = $items->map(function ($item) use ($studiedBySubject) {
+        $fromManual = $baseSessions()
+            ->whereNotNull('study_cycle_item_id')
+            ->join('study_cycle_items', 'study_sessions.study_cycle_item_id', '=', 'study_cycle_items.id')
+            ->groupBy('study_cycle_items.subject_id')
+            ->selectRaw('study_cycle_items.subject_id as subject_id, SUM(duration_minutes) as minutes')
+            ->pluck('minutes', 'subject_id');
+
+        $studiedBySubject = $fromTasks->keys()
+            ->merge($fromManual->keys())
+            ->unique()
+            ->mapWithKeys(fn ($id) => [$id => ($fromTasks[$id] ?? 0) + ($fromManual[$id] ?? 0)]);
+
+        // Next pending task per subject, and the last few sessions logged for it
+        // (either via a task or a manual entry), for the card's submenu actions.
+        $nextTaskBySubject = StudyTask::query()
+            ->where('study_cycle_id', $plan->id)
+            ->where('status', 'pending')
+            ->orderBy('scheduled_for')
+            ->orderBy('position')
+            ->get(['id', 'subject_id'])
+            ->unique('subject_id')
+            ->pluck('id', 'subject_id');
+
+        $recentBySubject = StudySession::query()
+            ->where('study_sessions.study_cycle_id', $plan->id)
+            ->whereNotNull('study_sessions.duration_minutes')
+            ->leftJoin('topics', 'study_sessions.topic_id', '=', 'topics.id')
+            ->leftJoin('study_cycle_items', 'study_sessions.study_cycle_item_id', '=', 'study_cycle_items.id')
+            ->selectRaw('study_sessions.*, COALESCE(topics.subject_id, study_cycle_items.subject_id) as resolved_subject_id')
+            ->orderByDesc('studied_at')
+            ->get()
+            ->groupBy('resolved_subject_id');
+
+        $sequence = $items->map(function ($item) use ($studiedBySubject, $nextTaskBySubject, $recentBySubject) {
             $studied = (int) ($studiedBySubject[$item->subject_id] ?? 0);
 
             return [
                 'id' => $item->id,
+                'subject_id' => $item->subject_id,
                 'subject' => $item->subject?->name ?? '—',
                 'color' => $item->subject?->color ?? '#94a3b8',
                 'planned_minutes' => $item->planned_minutes,
@@ -53,6 +94,16 @@ class PlanejamentoController extends Controller
                 'pct' => $item->planned_minutes > 0
                     ? min(100, round($studied / $item->planned_minutes * 100, 2))
                     : 0,
+                'next_task_id' => $nextTaskBySubject[$item->subject_id] ?? null,
+                'recent_sessions' => ($recentBySubject[$item->subject_id] ?? collect())
+                    ->take(5)
+                    ->map(fn ($s) => [
+                        'id' => $s->id,
+                        'date' => Carbon::parse($s->studied_at)->isoFormat('DD/MM/YYYY'),
+                        'duration_minutes' => $s->duration_minutes,
+                        'notes' => $s->notes,
+                    ])
+                    ->values(),
             ];
         })->values();
 
@@ -109,5 +160,46 @@ class PlanejamentoController extends Controller
         app(TaskSchedulerService::class)->schedule($plan);
 
         return back()->with('success', 'Fila de tarefas replanejada a partir de hoje.');
+    }
+
+    /**
+     * "Adicionar Estudo Manualmente" — log a study session for a subject
+     * outside the task queue (e.g. extra practice), linked via the cycle item
+     * since there's no specific aula/topic attached.
+     */
+    public function storeManualSession(Request $request): RedirectResponse
+    {
+        $plan = $this->activePlan($request);
+        abort_unless($plan, 404);
+
+        $data = $request->validate([
+            'study_cycle_item_id' => ['required', 'integer'],
+            'duration_minutes' => ['required', 'integer', 'min:1', 'max:1440'],
+            'questions_total' => ['nullable', 'integer', 'min:0', 'max:10000'],
+            'questions_correct' => ['nullable', 'integer', 'min:0', 'max:10000'],
+        ]);
+
+        $item = StudyCycleItem::query()
+            ->where('id', $data['study_cycle_item_id'])
+            ->where('study_cycle_id', $plan->id)
+            ->firstOrFail();
+
+        $total = $data['questions_total'] ?? null;
+        $correct = $data['questions_correct'] ?? null;
+        if ($total !== null && $correct !== null) {
+            $correct = min($correct, $total);
+        }
+
+        StudySession::create([
+            'user_id' => $plan->user_id,
+            'study_cycle_id' => $plan->id,
+            'study_cycle_item_id' => $item->id,
+            'studied_at' => now(),
+            'duration_minutes' => $data['duration_minutes'],
+            'questions_total' => $total,
+            'questions_correct' => $correct,
+        ]);
+
+        return back()->with('success', 'Estudo registrado manualmente.');
     }
 }

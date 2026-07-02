@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Link, router } from '@inertiajs/react';
 
@@ -9,6 +10,118 @@ function fmt(m) {
     if (h && min) return `${h}h${String(min).padStart(2, '0')}min`;
     if (h) return `${h}h`;
     return `${min}min`;
+}
+
+/* --- Ícones do submenu --------------------------------------------------- */
+const PlayIcon = () => (
+    <svg className="h-4 w-4 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M8 5.14v13.72a1 1 0 001.5.86l11-6.86a1 1 0 000-1.72l-11-6.86a1 1 0 00-1.5.86z" />
+    </svg>
+);
+const PlusIcon = () => (
+    <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+    </svg>
+);
+const HistoryIcon = () => (
+    <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l2.5 1.5M20 12a8 8 0 11-3-6.24M20 4v4.5h-4.5" />
+    </svg>
+);
+
+const MANUAL_DURATIONS = [15, 30, 45, 60, 90, 120];
+
+/* --- Card de disciplina (Sequência dos estudos) -------------------------- */
+function SubjectCard({ item, index, onStart, onManual }) {
+    const [showHistory, setShowHistory] = useState(false);
+
+    return (
+        <li
+            className="group rounded-lg border border-transparent bg-white px-3 py-2.5 transition-all duration-300 ease-out hover:border-blue-200 hover:bg-blue-50"
+            onMouseLeave={() => setShowHistory(false)}
+        >
+            <div className="flex items-center justify-between gap-2 text-sm">
+                <span className="flex items-center gap-2 font-medium text-slate-700">
+                    <span className="w-5 text-right text-xs text-slate-300">{index + 1}.</span>
+                    <span
+                        className="h-2.5 w-2.5 rounded-full"
+                        style={{ backgroundColor: item.color }}
+                    />
+                    {item.subject}
+                </span>
+                <span className="text-xs tabular-nums text-slate-400">
+                    {fmt(item.studied_minutes)} / {fmt(item.planned_minutes)}
+                </span>
+            </div>
+
+            {/* Barra de progresso: tom pastel por padrão, azul ao passar o mouse */}
+            <div className="relative ml-7 mt-1 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                <div
+                    className="absolute inset-y-0 left-0 rounded-full transition-opacity duration-300 group-hover:opacity-0"
+                    style={{ width: `${Math.min(100, item.pct)}%`, backgroundColor: item.color }}
+                />
+                <div
+                    className="absolute inset-y-0 left-0 rounded-full bg-blue-500 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                    style={{ width: `${Math.min(100, item.pct)}%` }}
+                />
+            </div>
+
+            {/* Submenu — revelado com expansão fluida ao passar o mouse */}
+            <div
+                className={
+                    'ml-7 max-h-0 overflow-hidden opacity-0 transition-all duration-300 ease-out ' +
+                    'group-hover:mt-3 group-hover:max-h-60 group-hover:opacity-100'
+                }
+            >
+                <div className="flex items-center gap-1 border-t border-blue-100 pt-3">
+                    <button
+                        type="button"
+                        onClick={() => onStart(item)}
+                        disabled={!item.next_task_id}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:text-slate-300 disabled:hover:bg-transparent"
+                        title={item.next_task_id ? undefined : 'Nenhuma tarefa pendente desta disciplina'}
+                    >
+                        <PlayIcon />
+                        Iniciar Estudo
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => onManual(item)}
+                        className="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-blue-700 transition hover:bg-blue-100"
+                    >
+                        <PlusIcon />
+                        Adicionar Estudo Manualmente
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setShowHistory((v) => !v)}
+                        className={
+                            'flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition hover:bg-blue-100 ' +
+                            (showHistory ? 'bg-blue-100 text-blue-800' : 'text-blue-700')
+                        }
+                    >
+                        <HistoryIcon />
+                        Ver Últimos Estudos
+                    </button>
+                </div>
+
+                {showHistory && (
+                    <div className="mb-2 space-y-1 rounded-md bg-white px-3 py-2 text-xs text-slate-500 shadow-sm">
+                        {item.recent_sessions.length === 0 ? (
+                            <p>Nenhum estudo registrado ainda.</p>
+                        ) : (
+                            item.recent_sessions.map((s) => (
+                                <div key={s.id} className="flex items-center justify-between gap-2">
+                                    <span>{s.date}</span>
+                                    <span className="tabular-nums">{fmt(s.duration_minutes)}</span>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                )}
+            </div>
+        </li>
+    );
 }
 
 /* --- Donut (anel multicamadas) ------------------------------------------ */
@@ -128,6 +241,42 @@ export default function Planejamento({ cycle, nextTaskId }) {
         }
     };
 
+    const startSubject = (item) => {
+        if (item.next_task_id) router.visit(`/tarefas/${item.next_task_id}`);
+    };
+
+    // Modal "Adicionar Estudo Manualmente"
+    const [manualItem, setManualItem] = useState(null);
+    const [manualMinutes, setManualMinutes] = useState(30);
+    const [manualTotal, setManualTotal] = useState('');
+    const [manualCorrect, setManualCorrect] = useState('');
+    const [savingManual, setSavingManual] = useState(false);
+
+    const openManual = (item) => {
+        setManualItem(item);
+        setManualMinutes(30);
+        setManualTotal('');
+        setManualCorrect('');
+    };
+
+    const saveManual = () => {
+        setSavingManual(true);
+        router.post(
+            '/planejamento/sessoes',
+            {
+                study_cycle_item_id: manualItem.id,
+                duration_minutes: manualMinutes,
+                questions_total: manualTotal !== '' ? parseInt(manualTotal, 10) : null,
+                questions_correct: manualCorrect !== '' ? parseInt(manualCorrect, 10) : null,
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => setManualItem(null),
+                onFinish: () => setSavingManual(false),
+            },
+        );
+    };
+
     return (
         <div className="space-y-4">
             {/* Ações */}
@@ -196,37 +345,15 @@ export default function Planejamento({ cycle, nextTaskId }) {
                         <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
                             Sequência dos estudos
                         </p>
-                        <ol className="mt-4 space-y-4">
+                        <ol className="mt-3 space-y-1">
                             {cycle.sequence.map((s, i) => (
-                                <li key={s.id}>
-                                    <div className="mb-1 flex items-center justify-between gap-2 text-sm">
-                                        <span className="flex items-center gap-2 font-medium text-slate-700">
-                                            <span className="w-5 text-right text-xs text-slate-300">
-                                                {i + 1}.
-                                            </span>
-                                            <span
-                                                className="h-2.5 w-2.5 rounded-full"
-                                                style={{ backgroundColor: s.color }}
-                                            />
-                                            {s.subject}
-                                        </span>
-                                        <span className="text-xs tabular-nums text-slate-400">
-                                            {fmt(s.studied_minutes)} / {fmt(s.planned_minutes)}
-                                        </span>
-                                    </div>
-                                    <div
-                                        className="ml-7 h-1.5 overflow-hidden rounded-full"
-                                        style={{ backgroundColor: `${s.color}26` }}
-                                    >
-                                        <div
-                                            className="h-full rounded-full transition-all"
-                                            style={{
-                                                width: `${Math.min(100, s.pct)}%`,
-                                                backgroundColor: s.color,
-                                            }}
-                                        />
-                                    </div>
-                                </li>
+                                <SubjectCard
+                                    key={s.id}
+                                    item={s}
+                                    index={i}
+                                    onStart={startSubject}
+                                    onManual={openManual}
+                                />
                             ))}
                         </ol>
                     </div>
@@ -280,6 +407,94 @@ export default function Planejamento({ cycle, nextTaskId }) {
                     />
                 </svg>
             </Link>
+
+            {/* Modal — Adicionar Estudo Manualmente */}
+            {manualItem && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div
+                        className="absolute inset-0 bg-slate-900/50"
+                        onClick={() => !savingManual && setManualItem(null)}
+                    />
+                    <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
+                        <h2 className="text-lg font-bold text-slate-900">
+                            Adicionar estudo manualmente
+                        </h2>
+                        <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-400">
+                            <span
+                                className="h-2.5 w-2.5 rounded-full"
+                                style={{ backgroundColor: manualItem.color }}
+                            />
+                            {manualItem.subject}
+                        </p>
+
+                        <p className="mt-4 text-sm font-semibold text-slate-800">
+                            Quanto tempo você estudou?
+                        </p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                            {MANUAL_DURATIONS.map((m) => (
+                                <button
+                                    key={m}
+                                    type="button"
+                                    onClick={() => setManualMinutes(m)}
+                                    className={
+                                        'rounded-lg border px-3 py-1.5 text-sm font-medium transition ' +
+                                        (manualMinutes === m
+                                            ? 'border-blue-600 bg-blue-600 text-white'
+                                            : 'border-slate-300 bg-white text-slate-600 hover:border-blue-400')
+                                    }
+                                >
+                                    {fmt(m)}
+                                </button>
+                            ))}
+                        </div>
+
+                        <p className="mt-4 text-sm font-semibold text-slate-800">
+                            Desempenho <span className="font-normal text-slate-400">(opcional)</span>
+                        </p>
+                        <div className="mt-2 grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-xs text-slate-500">Questões feitas</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={manualTotal}
+                                    onChange={(e) => setManualTotal(e.target.value)}
+                                    className="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-blue-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs text-slate-500">Acertos</label>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={manualCorrect}
+                                    onChange={(e) => setManualCorrect(e.target.value)}
+                                    className="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-blue-500 focus:ring-blue-500"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="mt-6 flex items-center justify-end gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setManualItem(null)}
+                                disabled={savingManual}
+                                className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:opacity-50"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                type="button"
+                                onClick={saveManual}
+                                disabled={savingManual}
+                                className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 disabled:opacity-50"
+                            >
+                                {savingManual ? 'Salvando…' : 'Salvar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
