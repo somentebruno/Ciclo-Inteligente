@@ -9,20 +9,79 @@ function getGreeting() {
 }
 
 export default function Home() {
-    const { currentPlan, userPlans = [], auth } = usePage().props;
+    const { currentPlan, userPlans = [], auth, focus } = usePage().props;
     const firstName = auth.user?.name?.split(' ')[0];
+
+    const pct =
+        focus && focus.goal > 0
+            ? Math.min(100, Math.round((focus.completed / focus.goal) * 100))
+            : 0;
 
     return (
         <AppLayout title="Início">
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-                <h1 className="text-2xl font-bold text-slate-800">
-                    {getGreeting()}, {firstName} 👊
-                </h1>
-                <p className="mt-1 mb-4 text-slate-600">
-                    Foque na próxima tarefa para manter o ritmo.
-                </p>
+            <div className="space-y-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-slate-800">
+                        {getGreeting()}, {firstName} 👊
+                    </h1>
+                    <p className="mt-1 text-slate-600">
+                        Foque na próxima tarefa para manter o ritmo.
+                    </p>
+                </div>
 
-                {currentPlan ? (
+                {focus && (
+                    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
+                        <span className="text-xs font-bold uppercase tracking-wider text-brand-700">
+                            Foco de hoje
+                        </span>
+
+                        <span className="text-sm text-slate-500">
+                            Meta:{' '}
+                            <span className="font-semibold text-slate-700">
+                                {focus.goal} {focus.goal === 1 ? 'tarefa' : 'tarefas'}
+                            </span>
+                        </span>
+
+                        <span className="text-sm text-slate-500">
+                            Concluídas hoje:{' '}
+                            <span className="font-semibold text-slate-700">
+                                {focus.completed}
+                            </span>
+                        </span>
+
+                        <div className="flex min-w-[140px] flex-1 items-center gap-2">
+                            <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
+                                <div
+                                    className={
+                                        'h-full rounded-full transition-all ' +
+                                        (focus.done ? 'bg-emerald-500' : 'bg-brand-500')
+                                    }
+                                    style={{ width: `${pct}%` }}
+                                />
+                            </div>
+                            <span className="text-xs font-medium tabular-nums text-slate-400">
+                                {pct}%
+                            </span>
+                        </div>
+
+                        {focus.done ? (
+                            <span className="text-sm font-semibold text-emerald-600">
+                                Meta do dia concluída 👏
+                            </span>
+                        ) : focus.goal === 0 ? (
+                            <span className="text-sm text-slate-400">
+                                Nenhuma tarefa para hoje
+                            </span>
+                        ) : (
+                            <span className="text-sm font-medium text-slate-500">
+                                Faltam {focus.goal - focus.completed}
+                            </span>
+                        )}
+                    </div>
+                )}
+
+                <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+                    {currentPlan ? (
                     <>
                         <p className="text-slate-600 mb-4">
                             Este é o seu plano de estudos atual:
@@ -64,7 +123,8 @@ export default function Home() {
                             Criar meu plano
                         </Link>
                     </>
-                )}
+                    )}
+                </div>
             </div>
         </AppLayout>
     );

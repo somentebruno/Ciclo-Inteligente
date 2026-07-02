@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PlanController;
 use App\Http\Controllers\PlannerController;
@@ -20,7 +21,7 @@ Route::get('/', function () {
 |--------------------------------------------------------------------------
 */
 Route::middleware('auth')->group(function () {
-    Route::get('/home', fn () => Inertia::render('Home'))->name('home');
+    Route::get('/home', [HomeController::class, 'index'])->name('home');
     Route::redirect('/dashboard', '/home')->name('dashboard');
 
     // Onboarding — montagem do plano (6 etapas)
