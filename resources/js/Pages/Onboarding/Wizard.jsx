@@ -32,38 +32,49 @@ function formatHours(h) {
 /* --- Small UI helpers --------------------------------------------------- */
 function Stepper({ step }) {
     return (
-        <ol className="flex flex-wrap items-center gap-2">
-            {STEPS.map((label, i) => {
-                const n = i + 1;
-                const done = n < step;
-                const active = n === step;
-                return (
-                    <li key={label} className="flex items-center gap-2">
-                        <span
-                            className={
-                                'flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ' +
-                                (active
-                                    ? 'bg-brand-600 text-white'
-                                    : done
-                                      ? 'bg-brand-100 text-brand-700'
-                                      : 'bg-slate-100 text-slate-400')
-                            }
+        <div>
+            <ol className="flex items-center">
+                {STEPS.map((label, i) => {
+                    const n = i + 1;
+                    const done = n < step;
+                    const active = n === step;
+                    const isLast = n === STEPS.length;
+                    return (
+                        <li
+                            key={label}
+                            className={'flex items-center ' + (isLast ? '' : 'flex-1')}
                         >
-                            {done ? '✓' : n}
-                        </span>
-                        <span
-                            className={
-                                'hidden text-sm sm:inline ' +
-                                (active ? 'font-semibold text-slate-900' : 'text-slate-400')
-                            }
-                        >
-                            {label}
-                        </span>
-                        {n < STEPS.length && <span className="mx-1 h-px w-4 bg-slate-200" />}
-                    </li>
-                );
-            })}
-        </ol>
+                            <span
+                                title={label}
+                                className={
+                                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition ' +
+                                    (done
+                                        ? 'bg-brand-600 text-white'
+                                        : active
+                                          ? 'bg-brand-600 text-white ring-4 ring-brand-100'
+                                          : 'bg-slate-100 text-slate-400')
+                                }
+                            >
+                                {done ? '✓' : n}
+                            </span>
+                            {!isLast && (
+                                <span
+                                    className={
+                                        'mx-2 h-0.5 flex-1 rounded-full transition ' +
+                                        (done ? 'bg-brand-600' : 'bg-slate-200')
+                                    }
+                                />
+                            )}
+                        </li>
+                    );
+                })}
+            </ol>
+            <div className="mt-3">
+                <span className="text-sm font-semibold text-slate-900">
+                    {STEPS[step - 1]}
+                </span>
+            </div>
+        </div>
     );
 }
 
