@@ -25,6 +25,21 @@ class CycleGeneratorService
     }
 
     /**
+     * How long a single task/session should be: the midpoint of the
+     * student's chosen min/max session duration (from the "Criar
+     * Planejamento" modal), falling back to the generic estimate when
+     * they weren't set.
+     */
+    public static function sessionMinutes(?int $min, ?int $max): int
+    {
+        if ($min && $max) {
+            return (int) round(($min + $max) / 2);
+        }
+
+        return self::MINUTES_PER_TASK;
+    }
+
+    /**
      * Generate (or regenerate) the cycle items for a given cycle.
      *
      * @param  array<int, array{subject_id:int, importance:int, knowledge:int, format:string}>  $subjects
@@ -50,6 +65,7 @@ class CycleGeneratorService
             <=> self::weight($a['importance'], $a['knowledge']));
 
         $position = 1;
+        $sessionMinutes = self::sessionMinutes($cycle->min_session_minutes, $cycle->max_session_minutes);
 
         foreach ($subjects as $subject) {
             $weight = self::weight($subject['importance'], $subject['knowledge']);
@@ -62,7 +78,7 @@ class CycleGeneratorService
                 'study_cycle_id' => $cycle->id,
                 'subject_id' => $subject['subject_id'],
                 'position' => $position++,
-                'planned_minutes' => $tasks * self::MINUTES_PER_TASK,
+                'planned_minutes' => $tasks * $sessionMinutes,
                 'completed_minutes' => 0,
                 'is_done' => false,
             ]);

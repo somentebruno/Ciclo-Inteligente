@@ -89,8 +89,14 @@ class OnboardingController extends Controller
         ]);
 
         // Tela 3 do modal só pergunta horas/semana — deriva a contagem de
-        // tarefas (1 tarefa ≈ 90min) e quantas por dia dado os dias escolhidos.
-        $weeklyTasks = max(1, (int) round($data['weekly_hours'] * 60 / CycleGeneratorService::MINUTES_PER_TASK));
+        // tarefas a partir da duração de sessão escolhida (média do
+        // min/máx, ou a estimativa genérica se não informado) e quantas
+        // por dia dado os dias escolhidos.
+        $sessionMinutes = CycleGeneratorService::sessionMinutes(
+            $data['min_session_minutes'] ?? null,
+            $data['max_session_minutes'] ?? null,
+        );
+        $weeklyTasks = max(1, (int) round($data['weekly_hours'] * 60 / $sessionMinutes));
         $studyDaysCount = count($data['study_days'] ?? []) ?: 7;
         $dailyTasks = max(1, (int) ceil($weeklyTasks / $studyDaysCount));
 

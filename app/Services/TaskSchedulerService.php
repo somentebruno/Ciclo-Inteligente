@@ -68,8 +68,9 @@ class TaskSchedulerService
                 'type' => StudyTask::TYPE_THEORY,
                 'format' => $item['subject']->pivot->format ?? 'pdf',
                 // Real aula duration when known (e.g. imported from the prep
-                // course platform); falls back to the generic block estimate.
-                'planned_minutes' => $item['topic']->estimated_minutes ?: CycleGeneratorService::MINUTES_PER_TASK,
+                // course platform); falls back to the cycle's chosen session length.
+                'planned_minutes' => $item['topic']->estimated_minutes
+                    ?: CycleGeneratorService::sessionMinutes($cycle->min_session_minutes, $cycle->max_session_minutes),
                 'scheduled_for' => $dates[intdiv($index, $perDay) % count($dates)],
                 'position' => $index,
                 'status' => 'pending',
