@@ -2014,7 +2014,7 @@ export default function Planejamento({ cycle, nextTaskId, course_subjects: cours
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
                 {/* Metade esquerda */}
                 <div className="space-y-4">
-                    <div className="grid grid-cols-[3fr_7fr] gap-4">
+                    <div className="grid grid-cols-[1fr_4fr] gap-4">
                         {/* Ciclos completos */}
                         <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                             <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
