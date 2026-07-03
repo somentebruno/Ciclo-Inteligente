@@ -38,6 +38,16 @@ const TrashIcon = () => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9M19.228 5.79c.342.052.682.107 1.022.166m-1.022-.166L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12.56.397c.34-.059.68-.114 1.022-.166m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
     </svg>
 );
+const GripIcon = () => (
+    <svg className="h-4 w-4 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+        <circle cx="9" cy="6" r="1.4" />
+        <circle cx="9" cy="12" r="1.4" />
+        <circle cx="9" cy="18" r="1.4" />
+        <circle cx="15" cy="6" r="1.4" />
+        <circle cx="15" cy="12" r="1.4" />
+        <circle cx="15" cy="18" r="1.4" />
+    </svg>
+);
 
 /* --- Ícones do modo de foco ----------------------------------------------- */
 const FocusPlayIcon = ({ className = 'h-6 w-6' }) => (
@@ -945,7 +955,7 @@ function SubjectCard({ item, index, onStart, onManual, onHistory }) {
 }
 
 /* --- Linha editável (modo "Editar Ciclo") -------------------------------- */
-function EditableSubjectRow({ item, courseSubjects }) {
+function EditableSubjectRow({ item, courseSubjects, drag, isDragging, isDragOver }) {
     const [minutes, setMinutes] = useState(item.planned_minutes);
 
     const patch = (data) =>
@@ -964,8 +974,22 @@ function EditableSubjectRow({ item, courseSubjects }) {
     };
 
     return (
-        <li className="flex items-start gap-2">
+        <li
+            draggable
+            onDragStart={drag.onDragStart}
+            onDragOver={drag.onDragOver}
+            onDrop={drag.onDrop}
+            onDragEnd={drag.onDragEnd}
+            className={
+                'flex items-start gap-2 transition-opacity ' +
+                (isDragging ? 'opacity-40' : '') +
+                (isDragOver ? ' rounded-lg outline-dashed outline-2 outline-emerald-400' : '')
+            }
+        >
             <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+                <span className="shrink-0 cursor-grab touch-none text-slate-300 active:cursor-grabbing">
+                    <GripIcon />
+                </span>
                 <span
                     className="h-2.5 w-2.5 shrink-0 rounded-full"
                     style={{ backgroundColor: item.color }}
@@ -1781,6 +1805,47 @@ function StudyLogModal({ item, subjects, onClose }) {
 export default function Planejamento({ cycle, nextTaskId, course_subjects: courseSubjects = [] }) {
     const [editMode, setEditMode] = useState(false);
 
+    // Ordem local (drag-and-drop) da sequência enquanto em modo edição —
+    // ressincroniza com o servidor a cada resposta (edições de disciplina,
+    // duplicar, remover ou o próprio reordenar já vêm com a ordem certa).
+    const [order, setOrder] = useState(null);
+    const [dragId, setDragId] = useState(null);
+    const [dragOverId, setDragOverId] = useState(null);
+
+    useEffect(() => {
+        setOrder(editMode && cycle ? cycle.sequence.map((s) => s.id) : null);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [editMode, cycle?.sequence]);
+
+    const startDrag = (id) => setDragId(id);
+    const dragOver = (e, overId) => {
+        e.preventDefault();
+        setDragOverId(overId);
+        if (dragId == null || dragId === overId) return;
+        setOrder((prev) => {
+            if (!prev) return prev;
+            const from = prev.indexOf(dragId);
+            const to = prev.indexOf(overId);
+            if (from === -1 || to === -1) return prev;
+            const next = [...prev];
+            next.splice(from, 1);
+            next.splice(to, 0, dragId);
+            return next;
+        });
+    };
+    const endDrag = () => {
+        setDragId(null);
+        setDragOverId(null);
+    };
+    const dropDrag = () => {
+        if (order) {
+            router.post('/planejamento/itens/reordenar', { order }, { preserveScroll: true, preserveState: true });
+        }
+        endDrag();
+    };
+
+    const addSubject = () => router.post('/planejamento/itens', {}, { preserveScroll: true });
+
     if (!cycle) {
         return (
             <div className="rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm">
@@ -1796,6 +1861,10 @@ export default function Planejamento({ cycle, nextTaskId, course_subjects: cours
             </div>
         );
     }
+
+    const orderedSequence = order
+        ? order.map((id) => cycle.sequence.find((s) => s.id === id)).filter(Boolean)
+        : cycle.sequence;
 
     const restart = () => {
         if (confirm('Recomeçar o ciclo? A volta atual será contada como completa e o progresso das disciplinas será zerado.')) {
@@ -1953,19 +2022,40 @@ export default function Planejamento({ cycle, nextTaskId, course_subjects: cours
                     <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
                         Sequência dos estudos
                     </p>
-                    <ol className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-2">
-                        {cycle.sequence.map((s) => (
-                            <EditableSubjectRow key={s.id} item={s} courseSubjects={courseSubjects} />
+                    <ol className="mt-3 space-y-2">
+                        {orderedSequence.map((s) => (
+                            <EditableSubjectRow
+                                key={s.id}
+                                item={s}
+                                courseSubjects={courseSubjects}
+                                isDragging={dragId === s.id}
+                                isDragOver={dragOverId === s.id && dragId !== s.id}
+                                drag={{
+                                    onDragStart: () => startDrag(s.id),
+                                    onDragOver: (e) => dragOver(e, s.id),
+                                    onDrop: dropDrag,
+                                    onDragEnd: endDrag,
+                                }}
+                            />
                         ))}
                     </ol>
 
-                    <button
-                        type="button"
-                        onClick={() => setEditMode(false)}
-                        className="mt-4 rounded-lg border border-emerald-600 bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
-                    >
-                        Concluir edição
-                    </button>
+                    <div className="mt-4 flex gap-3">
+                        <button
+                            type="button"
+                            onClick={addSubject}
+                            className="rounded-lg border border-emerald-600 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50"
+                        >
+                            Adicionar Disciplina
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setEditMode(false)}
+                            className="rounded-lg border border-emerald-600 bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                        >
+                            Concluir edição
+                        </button>
+                    </div>
                 </div>
             )}
 

@@ -46,6 +46,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/planejamento/recomecar', [PlanejamentoController::class, 'restart'])->name('planejamento.restart');
     Route::post('/planejamento/replanejar', [PlanejamentoController::class, 'replan'])->name('planejamento.replan');
     Route::post('/planejamento/sessoes', [PlanejamentoController::class, 'storeManualSession'])->name('planejamento.sessoes.store');
+    Route::post('/planejamento/itens', [PlanejamentoController::class, 'storeItem'])->name('planejamento.itens.store');
+    Route::post('/planejamento/itens/reordenar', [PlanejamentoController::class, 'reorderItems'])->name('planejamento.itens.reordenar');
     Route::patch('/planejamento/itens/{item}', [PlanejamentoController::class, 'updateItem'])->name('planejamento.itens.update');
     Route::post('/planejamento/itens/{item}/duplicar', [PlanejamentoController::class, 'duplicateItem'])->name('planejamento.itens.duplicar');
     Route::delete('/planejamento/itens/{item}', [PlanejamentoController::class, 'destroyItem'])->name('planejamento.itens.destroy');

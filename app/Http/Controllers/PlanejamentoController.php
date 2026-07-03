@@ -206,6 +206,55 @@ class PlanejamentoController extends Controller
     }
 
     /**
+     * "Editar Ciclo" — add a new rotation block, defaulting to the course's
+     * first subject (the student picks the real one from the row's dropdown
+     * right after).
+     */
+    public function storeItem(Request $request): RedirectResponse
+    {
+        $plan = $this->activePlan($request);
+        abort_unless($plan, 404);
+
+        $subjectId = $plan->course->subjects()->orderBy('id')->value('id');
+        abort_unless($subjectId, 422);
+
+        StudyCycleItem::create([
+            'study_cycle_id' => $plan->id,
+            'subject_id' => $subjectId,
+            'position' => ($plan->items()->max('position') ?? 0) + 1,
+            'planned_minutes' => 60,
+            'completed_minutes' => 0,
+            'is_done' => false,
+        ]);
+
+        return back()->with('success', 'Disciplina adicionada ao ciclo.');
+    }
+
+    /**
+     * "Editar Ciclo" — persist the drag-and-drop reorder of the rotation.
+     */
+    public function reorderItems(Request $request): RedirectResponse
+    {
+        $plan = $this->activePlan($request);
+        abort_unless($plan, 404);
+
+        $data = $request->validate([
+            'order' => ['required', 'array'],
+            'order.*' => ['integer', Rule::exists('study_cycle_items', 'id')->where(fn ($q) => $q->where('study_cycle_id', $plan->id))],
+        ]);
+
+        // Every item must be accounted for — a partial list would silently
+        // orphan the missing ones at whatever position they already had.
+        abort_unless(count($data['order']) === $plan->items()->count(), 422);
+
+        foreach ($data['order'] as $position => $itemId) {
+            StudyCycleItem::where('id', $itemId)->update(['position' => $position]);
+        }
+
+        return back();
+    }
+
+    /**
      * "Editar Ciclo" — change which subject a rotation block represents
      * and/or its planned minutes. Only affects StudyCycleItem (the rotation
      * shown here and in the donut) — doesn't touch configuredSubjects or the
