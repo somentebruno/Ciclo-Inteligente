@@ -274,7 +274,7 @@ function StepRitmo({ weeklyHours, setWeeklyHours, studyDays, toggleDay, minDurat
                         <select
                             value={minDuration}
                             onChange={(e) => setMinDuration(e.target.value)}
-                            className={underlineFieldClass + ' appearance-none pr-6'}
+                            className={underlineFieldClass + ' appearance-none bg-none pr-6'}
                         >
                             <option value="">Selecione...</option>
                             {DURATION_OPTIONS.map((d) => (
@@ -292,7 +292,7 @@ function StepRitmo({ weeklyHours, setWeeklyHours, studyDays, toggleDay, minDurat
                         <select
                             value={maxDuration}
                             onChange={(e) => setMaxDuration(e.target.value)}
-                            className={underlineFieldClass + ' appearance-none pr-6'}
+                            className={underlineFieldClass + ' appearance-none bg-none pr-6'}
                         >
                             <option value="">Selecione...</option>
                             {DURATION_OPTIONS.map((d) => (
