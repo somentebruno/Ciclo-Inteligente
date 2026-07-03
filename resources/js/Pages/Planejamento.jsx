@@ -957,6 +957,7 @@ function SubjectCard({ item, index, onStart, onManual, onHistory }) {
 /* --- Linha editável (modo "Editar Ciclo") -------------------------------- */
 function EditableSubjectRow({ item, courseSubjects, drag, isDragging, isDragOver }) {
     const [minutes, setMinutes] = useState(item.planned_minutes);
+    const [confirmingRemove, setConfirmingRemove] = useState(false);
 
     const patch = (data) =>
         router.patch(`/planejamento/itens/${item.id}`, data, {
@@ -967,11 +968,7 @@ function EditableSubjectRow({ item, courseSubjects, drag, isDragging, isDragOver
     const duplicate = () =>
         router.post(`/planejamento/itens/${item.id}/duplicar`, {}, { preserveScroll: true });
 
-    const remove = () => {
-        if (confirm('Remover esta disciplina do ciclo?')) {
-            router.delete(`/planejamento/itens/${item.id}`, { preserveScroll: true });
-        }
-    };
+    const remove = () => router.delete(`/planejamento/itens/${item.id}`, { preserveScroll: true });
 
     return (
         <li
@@ -1030,7 +1027,7 @@ function EditableSubjectRow({ item, courseSubjects, drag, isDragging, isDragOver
                 </button>
                 <button
                     type="button"
-                    onClick={remove}
+                    onClick={() => setConfirmingRemove(true)}
                     title="Remover"
                     className="flex items-center justify-center gap-1 rounded-md border border-red-200 bg-white px-2 py-1 text-[11px] font-medium text-red-600 transition hover:bg-red-50"
                 >
@@ -1042,6 +1039,17 @@ function EditableSubjectRow({ item, courseSubjects, drag, isDragging, isDragOver
                     {fmt(item.studied_minutes)}
                 </span>
             </div>
+
+            {confirmingRemove && (
+                <ConfirmDialog
+                    title="Remover esta disciplina?"
+                    message="Ela sai da sequência do ciclo. Isso não afeta sessões já registradas."
+                    confirmLabel="Remover"
+                    danger
+                    onConfirm={remove}
+                    onCancel={() => setConfirmingRemove(false)}
+                />
+            )}
         </li>
     );
 }
@@ -1155,6 +1163,38 @@ function yesterdayISO() {
     const d = new Date();
     d.setDate(d.getDate() - 1);
     return d.toISOString().slice(0, 10);
+}
+
+/* --- Confirmação (substitui window.confirm) ------------------------------ */
+function ConfirmDialog({ title, message, confirmLabel = 'Confirmar', danger = false, onConfirm, onCancel }) {
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/50" onClick={onCancel} />
+            <div className="relative z-10 w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+                <h2 className="text-base font-bold text-slate-900">{title}</h2>
+                <p className="mt-2 text-sm text-slate-500">{message}</p>
+                <div className="mt-5 flex justify-end gap-3">
+                    <button
+                        type="button"
+                        onClick={onCancel}
+                        className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                    >
+                        Cancelar
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onConfirm}
+                        className={
+                            'rounded-lg px-4 py-2 text-sm font-semibold text-white shadow-sm transition ' +
+                            (danger ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700')
+                        }
+                    >
+                        {confirmLabel}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
 }
 
 function FieldLabel({ children }) {
@@ -1804,6 +1844,7 @@ function StudyLogModal({ item, subjects, onClose }) {
 /* --- Page ---------------------------------------------------------------- */
 export default function Planejamento({ cycle, nextTaskId, course_subjects: courseSubjects = [] }) {
     const [editMode, setEditMode] = useState(false);
+    const [confirmAction, setConfirmAction] = useState(null);
 
     // Ordem local (drag-and-drop) da sequência enquanto em modo edição —
     // ressincroniza com o servidor a cada resposta (edições de disciplina,
@@ -1866,23 +1907,30 @@ export default function Planejamento({ cycle, nextTaskId, course_subjects: cours
         ? order.map((id) => cycle.sequence.find((s) => s.id === id)).filter(Boolean)
         : cycle.sequence;
 
-    const restart = () => {
-        if (confirm('Recomeçar o ciclo? A volta atual será contada como completa e o progresso das disciplinas será zerado.')) {
-            router.post('/planejamento/recomecar', {}, { preserveScroll: true });
-        }
-    };
+    const restart = () =>
+        setConfirmAction({
+            title: 'Recomeçar o ciclo?',
+            message: 'A volta atual será contada como completa e o progresso das disciplinas será zerado.',
+            confirmLabel: 'Recomeçar',
+            onConfirm: () => router.post('/planejamento/recomecar', {}, { preserveScroll: true }),
+        });
 
-    const replan = () => {
-        if (confirm('Replanejar a fila de tarefas a partir de hoje? As tarefas pendentes serão reagendadas (o histórico concluído é mantido).')) {
-            router.post('/planejamento/replanejar', {}, { preserveScroll: true });
-        }
-    };
+    const replan = () =>
+        setConfirmAction({
+            title: 'Replanejar a fila de tarefas?',
+            message: 'As tarefas pendentes a partir de hoje serão reagendadas (o histórico concluído é mantido).',
+            confirmLabel: 'Replanejar',
+            onConfirm: () => router.post('/planejamento/replanejar', {}, { preserveScroll: true }),
+        });
 
-    const remove = () => {
-        if (confirm(`Remover o plano "${cycle.name}"? Esta ação não pode ser desfeita.`)) {
-            router.delete(`/planos/${cycle.id}`);
-        }
-    };
+    const remove = () =>
+        setConfirmAction({
+            title: 'Remover este plano?',
+            message: `O plano "${cycle.name}" será apagado e não pode ser recuperado.`,
+            confirmLabel: 'Remover',
+            danger: true,
+            onConfirm: () => router.delete(`/planos/${cycle.id}`),
+        });
 
     // Modo de foco — ambiente de estudo em tela cheia
     const [focusItem, setFocusItem] = useState(null);
@@ -2080,6 +2128,18 @@ export default function Planejamento({ cycle, nextTaskId, course_subjects: cours
                     />
                 </svg>
             </Link>
+            )}
+
+            {/* Confirmação — Recomeçar Ciclo / Replanejar / Remover plano */}
+            {confirmAction && (
+                <ConfirmDialog
+                    {...confirmAction}
+                    onConfirm={() => {
+                        confirmAction.onConfirm();
+                        setConfirmAction(null);
+                    }}
+                    onCancel={() => setConfirmAction(null)}
+                />
             )}
 
             {/* Modo de foco */}
