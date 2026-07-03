@@ -28,6 +28,16 @@ const HistoryIcon = () => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l2.5 1.5M20 12a8 8 0 11-3-6.24M20 4v4.5h-4.5" />
     </svg>
 );
+const DuplicateIcon = () => (
+    <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3a2.25 2.25 0 01-2.25 2.25h-9a2.25 2.25 0 01-2.25-2.25v-9a2.25 2.25 0 012.25-2.25h3m4.5-4.5h5.25a2.25 2.25 0 012.25 2.25v9a2.25 2.25 0 01-2.25 2.25h-9a2.25 2.25 0 01-2.25-2.25V6.75a2.25 2.25 0 012.25-2.25z" />
+    </svg>
+);
+const TrashIcon = () => (
+    <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9M19.228 5.79c.342.052.682.107 1.022.166m-1.022-.166L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12.56.397c.34-.059.68-.114 1.022-.166m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+    </svg>
+);
 
 /* --- Ícones do modo de foco ----------------------------------------------- */
 const FocusPlayIcon = ({ className = 'h-6 w-6' }) => (
@@ -934,6 +944,84 @@ function SubjectCard({ item, index, onStart, onManual, onHistory }) {
     );
 }
 
+/* --- Linha editável (modo "Editar Ciclo") -------------------------------- */
+function EditableSubjectRow({ item, courseSubjects }) {
+    const [minutes, setMinutes] = useState(item.planned_minutes);
+
+    const patch = (data) =>
+        router.patch(`/planejamento/itens/${item.id}`, data, {
+            preserveScroll: true,
+            preserveState: true,
+        });
+
+    const duplicate = () =>
+        router.post(`/planejamento/itens/${item.id}/duplicar`, {}, { preserveScroll: true });
+
+    const remove = () => {
+        if (confirm('Remover esta disciplina do ciclo?')) {
+            router.delete(`/planejamento/itens/${item.id}`, { preserveScroll: true });
+        }
+    };
+
+    return (
+        <li className="flex items-start gap-2">
+            <div className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5">
+                <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: item.color }}
+                />
+                <select
+                    value={item.subject_id}
+                    onChange={(e) => patch({ subject_id: Number(e.target.value) })}
+                    className="min-w-0 flex-1 rounded-md border-slate-300 py-1 text-sm text-slate-700 focus:border-emerald-500 focus:ring-emerald-500"
+                >
+                    {courseSubjects.map((s) => (
+                        <option key={s.id} value={s.id}>
+                            {s.name}
+                        </option>
+                    ))}
+                </select>
+                <label className="flex shrink-0 items-center gap-1.5 text-xs text-slate-400">
+                    MINUTOS
+                    <input
+                        type="number"
+                        min="1"
+                        value={minutes}
+                        onChange={(e) => setMinutes(e.target.value)}
+                        onBlur={() => patch({ planned_minutes: Number(minutes) || item.planned_minutes })}
+                        className="w-20 rounded-md border-slate-300 py-1 text-center text-sm tabular-nums text-slate-700 focus:border-emerald-500 focus:ring-emerald-500"
+                    />
+                </label>
+            </div>
+
+            <div className="flex w-24 shrink-0 flex-col gap-1.5">
+                <button
+                    type="button"
+                    onClick={duplicate}
+                    title="Duplicar"
+                    className="flex items-center justify-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 transition hover:border-emerald-400 hover:text-emerald-700"
+                >
+                    <DuplicateIcon />
+                    Duplicar
+                </button>
+                <button
+                    type="button"
+                    onClick={remove}
+                    title="Remover"
+                    className="flex items-center justify-center gap-1 rounded-md border border-red-200 bg-white px-2 py-1 text-[11px] font-medium text-red-600 transition hover:bg-red-50"
+                >
+                    <TrashIcon />
+                    Remover
+                </button>
+                <span className="flex items-center justify-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-[11px] font-medium tabular-nums text-slate-500">
+                    <ClockSmallIcon />
+                    {fmt(item.studied_minutes)}
+                </span>
+            </div>
+        </li>
+    );
+}
+
 /* --- Donut (anel multicamadas) ------------------------------------------ */
 function polar(cx, cy, r, deg) {
     const rad = ((deg - 90) * Math.PI) / 180;
@@ -1690,7 +1778,9 @@ function StudyLogModal({ item, subjects, onClose }) {
 }
 
 /* --- Page ---------------------------------------------------------------- */
-export default function Planejamento({ cycle, nextTaskId }) {
+export default function Planejamento({ cycle, nextTaskId, course_subjects: courseSubjects = [] }) {
+    const [editMode, setEditMode] = useState(false);
+
     if (!cycle) {
         return (
             <div className="rounded-xl border border-slate-200 bg-white p-10 text-center shadow-sm">
@@ -1799,24 +1889,34 @@ export default function Planejamento({ cycle, nextTaskId }) {
                         </div>
                     </div>
 
-                    {/* Sequência dos estudos */}
-                    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                            Sequência dos estudos
-                        </p>
-                        <ol className="mt-3 space-y-1">
-                            {cycle.sequence.map((s, i) => (
-                                <SubjectCard
-                                    key={s.id}
-                                    item={s}
-                                    index={i}
-                                    onStart={startSubject}
-                                    onManual={openManual}
-                                    onHistory={setHistoryItem}
-                                />
-                            ))}
-                        </ol>
-                    </div>
+                    {/* Sequência dos estudos (modo normal — some daqui e vira full-width abaixo em modo edição) */}
+                    {!editMode && (
+                        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                                Sequência dos estudos
+                            </p>
+                            <ol className="mt-3 space-y-1">
+                                {cycle.sequence.map((s, i) => (
+                                    <SubjectCard
+                                        key={s.id}
+                                        item={s}
+                                        index={i}
+                                        onStart={startSubject}
+                                        onManual={openManual}
+                                        onHistory={setHistoryItem}
+                                    />
+                                ))}
+                            </ol>
+
+                            <button
+                                type="button"
+                                onClick={() => setEditMode(true)}
+                                className="mt-4 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-emerald-400 hover:text-emerald-700"
+                            >
+                                Editar Ciclo
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Metade direita — Ciclo */}
@@ -1846,6 +1946,28 @@ export default function Planejamento({ cycle, nextTaskId }) {
                     </div>
                 </div>
             </div>
+
+            {/* Sequência dos estudos — modo edição (largura total) */}
+            {editMode && (
+                <div className="mt-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                        Sequência dos estudos
+                    </p>
+                    <ol className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-2">
+                        {cycle.sequence.map((s) => (
+                            <EditableSubjectRow key={s.id} item={s} courseSubjects={courseSubjects} />
+                        ))}
+                    </ol>
+
+                    <button
+                        type="button"
+                        onClick={() => setEditMode(false)}
+                        className="mt-4 rounded-lg border border-emerald-600 bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                    >
+                        Concluir edição
+                    </button>
+                </div>
+            )}
 
             {/* Botão flutuante — cronômetro (oculto durante o modo de foco, que já tem o seu) */}
             {!focusItem && (

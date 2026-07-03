@@ -11,6 +11,7 @@ use App\Services\TaskSchedulerService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -166,6 +167,11 @@ class PlanejamentoController extends Controller
                 'sequence' => $sequence,
             ],
             'nextTaskId' => $nextTask?->id,
+            // Disciplinas do curso do plano — alimenta o seletor de troca de
+            // disciplina no modo "Editar Ciclo".
+            'course_subjects' => $plan->course->subjects()
+                ->orderBy('id')
+                ->get(['id', 'name', 'color']),
         ]);
     }
 
@@ -197,6 +203,64 @@ class PlanejamentoController extends Controller
         app(TaskSchedulerService::class)->schedule($plan);
 
         return back()->with('success', 'Fila de tarefas replanejada a partir de hoje.');
+    }
+
+    /**
+     * "Editar Ciclo" — change which subject a rotation block represents
+     * and/or its planned minutes. Only affects StudyCycleItem (the rotation
+     * shown here and in the donut) — doesn't touch configuredSubjects or the
+     * task queue; use "Replanejar" separately if those should follow suit.
+     */
+    public function updateItem(Request $request, StudyCycleItem $item): RedirectResponse
+    {
+        $plan = $this->activePlan($request);
+        abort_unless($plan, 404);
+        abort_unless($item->study_cycle_id === $plan->id, 404);
+
+        $data = $request->validate([
+            'subject_id' => ['nullable', 'integer', Rule::exists('subjects', 'id')->where(fn ($q) => $q->where('course_id', $plan->course_id))],
+            'planned_minutes' => ['nullable', 'integer', 'min:1', 'max:1440'],
+        ]);
+
+        $item->update($data);
+
+        return back();
+    }
+
+    /**
+     * Clone a rotation block (same subject/minutes, fresh progress) and
+     * append it to the end of the sequence.
+     */
+    public function duplicateItem(Request $request, StudyCycleItem $item): RedirectResponse
+    {
+        $plan = $this->activePlan($request);
+        abort_unless($plan, 404);
+        abort_unless($item->study_cycle_id === $plan->id, 404);
+
+        StudyCycleItem::create([
+            'study_cycle_id' => $plan->id,
+            'subject_id' => $item->subject_id,
+            'position' => ($plan->items()->max('position') ?? 0) + 1,
+            'planned_minutes' => $item->planned_minutes,
+            'completed_minutes' => 0,
+            'is_done' => false,
+        ]);
+
+        return back()->with('success', 'Disciplina duplicada.');
+    }
+
+    /**
+     * Remove a rotation block from the sequence.
+     */
+    public function destroyItem(Request $request, StudyCycleItem $item): RedirectResponse
+    {
+        $plan = $this->activePlan($request);
+        abort_unless($plan, 404);
+        abort_unless($item->study_cycle_id === $plan->id, 404);
+
+        $item->delete();
+
+        return back()->with('success', 'Disciplina removida do ciclo.');
     }
 
     /**
