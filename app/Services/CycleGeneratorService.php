@@ -6,9 +6,11 @@ use App\Models\StudyCycle;
 use App\Models\StudyCycleItem;
 
 /**
- * Turns a student's onboarding choices into a concrete study cycle: a set of
- * ordered blocks (StudyCycleItem) where harder subjects get proportionally more
- * study time. This is the "montagem do plano" logic.
+ * Turns a student's onboarding choices into a concrete study cycle: the
+ * repeating "molde" of small, session-sized blocks (StudyCycleItem) that
+ * make up one lap — interleaved round-robin across subjects (classic
+ * "ciclo de estudos" rotation), with harder subjects getting more reps.
+ * This is the "montagem do plano" logic.
  */
 class CycleGeneratorService
 {
@@ -64,24 +66,40 @@ class CycleGeneratorService
         usort($subjects, fn (array $a, array $b) => self::weight($b['importance'], $b['knowledge'])
             <=> self::weight($a['importance'], $a['knowledge']));
 
-        $position = 1;
         $sessionMinutes = self::sessionMinutes($cycle->min_session_minutes, $cycle->max_session_minutes);
 
-        foreach ($subjects as $subject) {
-            $weight = self::weight($subject['importance'], $subject['knowledge']);
+        // How many blocks each subject gets this lap, proportional to its
+        // weight — guaranteeing at least one block per subject.
+        $queues = array_map(fn (array $s) => [
+            'subject_id' => $s['subject_id'],
+            'remaining' => max(1, (int) round(self::weight($s['importance'], $s['knowledge']) / $totalWeight * $weeklyTasks)),
+        ], $subjects);
 
-            // Distribute the weekly tasks proportionally to the difficulty weight,
-            // guaranteeing at least one task per subject.
-            $tasks = max(1, (int) round($weight / $totalWeight * $weeklyTasks));
+        // Round-robin: one block per subject per pass, repeating until every
+        // subject's quota for this lap is used up — the actual small,
+        // repeating "ciclo de estudos" rotation, not one lump sum per subject.
+        $position = 1;
+        $anyLeft = true;
+        while ($anyLeft) {
+            $anyLeft = false;
+            foreach ($queues as &$queue) {
+                if ($queue['remaining'] <= 0) {
+                    continue;
+                }
 
-            StudyCycleItem::create([
-                'study_cycle_id' => $cycle->id,
-                'subject_id' => $subject['subject_id'],
-                'position' => $position++,
-                'planned_minutes' => $tasks * $sessionMinutes,
-                'completed_minutes' => 0,
-                'is_done' => false,
-            ]);
+                StudyCycleItem::create([
+                    'study_cycle_id' => $cycle->id,
+                    'subject_id' => $queue['subject_id'],
+                    'position' => $position++,
+                    'planned_minutes' => $sessionMinutes,
+                    'completed_minutes' => 0,
+                    'is_done' => false,
+                ]);
+
+                $queue['remaining']--;
+                $anyLeft = $anyLeft || $queue['remaining'] > 0;
+            }
+            unset($queue);
         }
     }
 }

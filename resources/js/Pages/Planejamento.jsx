@@ -1220,7 +1220,12 @@ function StudyLogModal({ item, subjects, onClose }) {
     const [newCatColor, setNewCatColor] = useState(PASTEL_COLORS[0]);
     const [showColorPopover, setShowColorPopover] = useState(false);
 
-    const [subjectItemId, setSubjectItemId] = useState(item.id);
+    // `subjects` só tem 1 item representante por disciplina (o ciclo pode ter
+    // vários blocos pequenos da mesma disciplina) — resolve pelo subject_id,
+    // não pelo id do bloco específico que foi clicado.
+    const [subjectItemId, setSubjectItemId] = useState(
+        subjects.find((s) => s.subject_id === item.subject_id)?.id ?? item.id,
+    );
     const subject = subjects.find((s) => s.id === Number(subjectItemId)) ?? item;
 
     const [hh, setHh] = useState('00');
@@ -1907,6 +1912,13 @@ export default function Planejamento({ cycle, nextTaskId, course_subjects: cours
         ? order.map((id) => cycle.sequence.find((s) => s.id === id)).filter(Boolean)
         : cycle.sequence;
 
+    // Um item representante por disciplina (o primeiro bloco dela) — o
+    // dropdown "Disciplina" do Registro de Estudo não precisa listar cada
+    // bloco pequeno separadamente, só uma opção por disciplina.
+    const uniqueSubjects = cycle.sequence.filter(
+        (s, i) => cycle.sequence.findIndex((x) => x.subject_id === s.subject_id) === i,
+    );
+
     const restart = () =>
         setConfirmAction({
             title: 'Recomeçar o ciclo?',
@@ -2012,7 +2024,7 @@ export default function Planejamento({ cycle, nextTaskId, course_subjects: cours
                             <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
                                 Sequência dos estudos
                             </p>
-                            <ol className="mt-3 space-y-1">
+                            <ol className="mt-3 max-h-[420px] space-y-1 overflow-y-auto pr-1">
                                 {cycle.sequence.map((s, i) => (
                                     <SubjectCard
                                         key={s.id}
@@ -2043,12 +2055,12 @@ export default function Planejamento({ cycle, nextTaskId, course_subjects: cours
                     </p>
                     <div className="flex flex-1 items-center justify-center py-6">
                         <CycleDonut
-                            sequence={cycle.sequence}
+                            sequence={cycle.by_subject}
                             totalLabel={fmt(cycle.planned_minutes)}
                         />
                     </div>
                     <div className="flex flex-wrap justify-center gap-x-4 gap-y-1">
-                        {cycle.sequence.map((s) => (
+                        {cycle.by_subject.map((s) => (
                             <span
                                 key={s.id}
                                 className="inline-flex items-center gap-1.5 text-xs text-slate-500"
@@ -2149,7 +2161,7 @@ export default function Planejamento({ cycle, nextTaskId, course_subjects: cours
             {manualItem && (
                 <StudyLogModal
                     item={manualItem}
-                    subjects={cycle.sequence}
+                    subjects={uniqueSubjects}
                     onClose={() => setManualItem(null)}
                 />
             )}
