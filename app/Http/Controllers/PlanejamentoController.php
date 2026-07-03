@@ -200,8 +200,8 @@ class PlanejamentoController extends Controller
                 'max_session_minutes' => $plan->max_session_minutes,
                 'configured_subjects' => $plan->configuredSubjects->map(fn ($s) => [
                     'subject_id' => $s->id,
-                    'importance' => $s->pivot->importance,
-                    'knowledge' => $s->pivot->knowledge,
+                    'importance' => (float) $s->pivot->importance,
+                    'knowledge' => (float) $s->pivot->knowledge,
                 ])->values(),
             ],
             'nextTaskId' => $nextTask?->id,
@@ -251,8 +251,8 @@ class PlanejamentoController extends Controller
             'max_session_minutes' => ['nullable', 'integer', 'min:1'],
             'subjects' => ['required', 'array', 'min:1'],
             'subjects.*.subject_id' => ['required', 'integer', 'exists:subjects,id'],
-            'subjects.*.importance' => ['required', 'integer', 'between:1,5'],
-            'subjects.*.knowledge' => ['required', 'integer', 'between:1,5'],
+            'subjects.*.importance' => ['required', 'numeric', 'between:1,5', CycleGeneratorService::halfStepRule()],
+            'subjects.*.knowledge' => ['required', 'numeric', 'between:1,5', CycleGeneratorService::halfStepRule()],
         ]);
 
         $sessionMinutes = CycleGeneratorService::sessionMinutes(

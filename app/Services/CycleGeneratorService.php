@@ -18,12 +18,26 @@ class CycleGeneratorService
     public const MINUTES_PER_TASK = 90;
 
     /**
-     * Weight of a subject given the student's self-rated importance (1-5) and
-     * knowledge (1-5): more important + less known = more study time.
+     * Weight of a subject given the student's self-rated importance (1-5,
+     * half-steps) and knowledge (1-5, half-steps): more important + less
+     * known = more study time.
      */
-    public static function weight(int $importance, int $knowledge): int
+    public static function weight(float $importance, float $knowledge): float
     {
         return $importance * (6 - $knowledge);
+    }
+
+    /**
+     * Validation rule for the importance/knowledge sliders: only half-steps
+     * (1, 1.5, 2, ... 5) are valid values.
+     */
+    public static function halfStepRule(): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) {
+            if (abs(fmod((float) $value * 2, 1)) > 0.001) {
+                $fail('O valor de :attribute deve variar de 0.5 em 0.5.');
+            }
+        };
     }
 
     /**
@@ -44,7 +58,7 @@ class CycleGeneratorService
     /**
      * Generate (or regenerate) the cycle items for a given cycle.
      *
-     * @param  array<int, array{subject_id:int, importance:int, knowledge:int, format:string}>  $subjects
+     * @param  array<int, array{subject_id:int, importance:float, knowledge:float, format:string}>  $subjects
      */
     public function generate(StudyCycle $cycle, array $subjects): void
     {

@@ -82,8 +82,8 @@ class OnboardingController extends Controller
             'max_session_minutes' => ['nullable', 'integer', 'min:1'],
             'subjects' => ['required', 'array', 'min:1'],
             'subjects.*.subject_id' => ['required', 'integer', 'exists:subjects,id'],
-            'subjects.*.importance' => ['required', 'integer', 'between:1,5'],
-            'subjects.*.knowledge' => ['required', 'integer', 'between:1,5'],
+            'subjects.*.importance' => ['required', 'numeric', 'between:1,5', CycleGeneratorService::halfStepRule()],
+            'subjects.*.knowledge' => ['required', 'numeric', 'between:1,5', CycleGeneratorService::halfStepRule()],
             'studied_topics' => ['array'],
             'studied_topics.*' => ['integer', Rule::exists('topics', 'id')->where(fn ($q) => $q->whereDoesntHave('subtopics'))],
         ]);

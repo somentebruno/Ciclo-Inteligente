@@ -160,6 +160,7 @@ function StepPesos({ subjects, config, setSubject }) {
                                             type="range"
                                             min="1"
                                             max="5"
+                                            step="0.5"
                                             value={importance}
                                             onChange={(e) =>
                                                 setSubject(s.id, { importance: Number(e.target.value) })
@@ -177,6 +178,7 @@ function StepPesos({ subjects, config, setSubject }) {
                                             type="range"
                                             min="1"
                                             max="5"
+                                            step="0.5"
                                             value={knowledge}
                                             onChange={(e) =>
                                                 setSubject(s.id, { knowledge: Number(e.target.value) })
