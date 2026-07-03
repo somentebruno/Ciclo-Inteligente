@@ -1073,7 +1073,7 @@ function CycleDonut({ sequence, totalLabel }) {
     const size = 280;
     const c = size / 2;
     const planned = sequence.reduce((s, i) => s + i.planned_minutes, 0);
-    const [hover, setHover] = useState(null); // { item, x, y }
+    const [hover, setHover] = useState(null); // { id, subject, planned_minutes, x, y }
 
     if (!planned) return null;
 
@@ -1106,7 +1106,15 @@ function CycleDonut({ sequence, totalLabel }) {
                     <g
                         key={s.id}
                         className="cursor-pointer"
-                        onMouseEnter={() => setHover({ item: s, x: null, y: null })}
+                        onMouseEnter={() =>
+                            setHover((prev) => ({
+                                id: s.id,
+                                subject: s.subject,
+                                planned_minutes: s.planned_minutes,
+                                x: prev?.x ?? null,
+                                y: prev?.y ?? null,
+                            }))
+                        }
                     >
                         {/* Outer ring — planned share per block (solid), each block its own segment */}
                         <path
@@ -1115,7 +1123,7 @@ function CycleDonut({ sequence, totalLabel }) {
                             strokeWidth="30"
                             fill="none"
                             strokeLinecap="butt"
-                            opacity={hover && hover.item !== s ? 0.45 : 1}
+                            opacity={hover && hover.id !== s.id ? 0.45 : 1}
                         />
                         {/* Inner track — pastel */}
                         <path
@@ -1154,8 +1162,8 @@ function CycleDonut({ sequence, totalLabel }) {
                     className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs text-white shadow-lg"
                     style={{ left: hover.x, top: hover.y - 10 }}
                 >
-                    <p className="font-semibold">{hover.item.subject}</p>
-                    <p className="text-slate-300">{fmt(hover.item.planned_minutes)}</p>
+                    <p className="font-semibold">{hover.subject}</p>
+                    <p className="text-slate-300">{fmt(hover.planned_minutes)}</p>
                 </div>
             )}
         </div>
