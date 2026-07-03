@@ -95,8 +95,17 @@ class PlanejamentoController extends Controller
             ->get()
             ->groupBy('resolved_subject_id');
 
-        $sequence = $items->map(function ($item) use ($studiedBySubject, $nextTaskBySubject, $recentBySubject) {
-            $studied = (int) ($studiedBySubject[$item->subject_id] ?? 0);
+        // Each subject can now span several small blocks (the real "ciclo de
+        // estudos" rotation) instead of one lump item, so the subject's
+        // studied total is consumed sequentially in position order — the
+        // earliest block(s) of a subject fill up before later ones, instead
+        // of every block showing the same subject-wide percentage.
+        $remainingBySubject = $studiedBySubject->toArray();
+
+        $sequence = $items->map(function ($item) use (&$remainingBySubject, $nextTaskBySubject, $recentBySubject) {
+            $remaining = (int) ($remainingBySubject[$item->subject_id] ?? 0);
+            $studied = min($remaining, $item->planned_minutes);
+            $remainingBySubject[$item->subject_id] = $remaining - $studied;
 
             return [
                 'id' => $item->id,
@@ -149,6 +158,20 @@ class PlanejamentoController extends Controller
         $planned = $sequence->sum('planned_minutes');
         $studied = $sequence->sum(fn ($s) => min($s['studied_minutes'], $s['planned_minutes']));
 
+        // One aggregated row per subject (summing its blocks back together) —
+        // the donut and its legend want one slice per subject, not one per
+        // small block.
+        $bySubject = $sequence
+            ->groupBy('subject_id')
+            ->map(fn ($rows) => [
+                'id' => $rows->first()['subject_id'],
+                'subject' => $rows->first()['subject'],
+                'color' => $rows->first()['color'],
+                'planned_minutes' => $rows->sum('planned_minutes'),
+                'studied_minutes' => $rows->sum('studied_minutes'),
+            ])
+            ->values();
+
         $nextTask = StudyTask::query()
             ->where('user_id', $plan->user_id)
             ->where('study_cycle_id', $plan->id)
@@ -166,6 +189,7 @@ class PlanejamentoController extends Controller
                 'studied_minutes' => $studied,
                 'pct' => $planned > 0 ? round($studied / $planned * 100, 2) : 0,
                 'sequence' => $sequence,
+                'by_subject' => $bySubject,
             ],
             'nextTaskId' => $nextTask?->id,
             // Disciplinas do curso do plano — alimenta o seletor de troca de
@@ -358,11 +382,11 @@ class PlanejamentoController extends Controller
             ->where('study_cycle_id', $plan->id)
             ->firstOrFail();
 
-        $total = $data['questions_total'] ?? null;
-        $correct = $data['questions_correct'] ?? null;
-        if ($total !== null && $correct !== null) {
-            $correct = min($correct, $total);
-        }
+        // questions_total/questions_correct are NOT NULL (default 0) — Model::accuracy()
+        // already treats a 0 total as "no questions logged", so default to 0 rather
+        // than passing an explicit null that the DB would reject.
+        $total = $data['questions_total'] ?? 0;
+        $correct = min($data['questions_correct'] ?? 0, $total);
 
         $studiedAt = isset($data['date']) ? Carbon::parse($data['date'])->setTimeFrom(now()) : now();
 

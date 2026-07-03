@@ -118,11 +118,11 @@ class TaskController extends Controller
         }
 
         $minutes = $data['duration_minutes'] ?? 0;
-        $total = $data['questions_total'] ?? null;
-        $correct = $data['questions_correct'] ?? null;
-        if ($total !== null && $correct !== null) {
-            $correct = min($correct, $total);
-        }
+        // questions_total/questions_correct are NOT NULL (default 0) on
+        // study_sessions — default to 0 rather than an explicit null the DB
+        // would reject.
+        $total = $data['questions_total'] ?? 0;
+        $correct = min($data['questions_correct'] ?? 0, $total);
 
         // Always log the study session so it feeds the performance analytics.
         StudySession::create([
