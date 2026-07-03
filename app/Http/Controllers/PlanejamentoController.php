@@ -11,6 +11,7 @@ use App\Services\TaskSchedulerService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -247,9 +248,20 @@ class PlanejamentoController extends Controller
         // orphan the missing ones at whatever position they already had.
         abort_unless(count($data['order']) === $plan->items()->count(), 422);
 
-        foreach ($data['order'] as $position => $itemId) {
-            StudyCycleItem::where('id', $itemId)->update(['position' => $position]);
-        }
+        // (study_cycle_id, position) is unique, so writing final positions
+        // one row at a time can collide with a row that hasn't moved yet
+        // (e.g. swapping 0<->1 tries to set position 0 while another row is
+        // still sitting on 0). Stage everything on negative positions first,
+        // then commit the real ones — negatives never collide with the
+        // unsigned positions already in use.
+        DB::transaction(function () use ($data) {
+            foreach ($data['order'] as $position => $itemId) {
+                StudyCycleItem::where('id', $itemId)->update(['position' => -($position + 1)]);
+            }
+            foreach ($data['order'] as $position => $itemId) {
+                StudyCycleItem::where('id', $itemId)->update(['position' => $position]);
+            }
+        });
 
         return back();
     }
