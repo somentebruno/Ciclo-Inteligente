@@ -29,7 +29,7 @@ class OnboardingController extends Controller
             ->with([
                 'cargos:id,course_id,name,code',
                 'subjects' => fn ($q) => $q->orderBy('name'),
-                'subjects.topics' => fn ($q) => $q->orderBy('order'),
+                'subjects.topics' => fn ($q) => $q->studyable()->orderBy('order'),
             ])
             ->orderBy('name')
             ->get()
@@ -82,7 +82,7 @@ class OnboardingController extends Controller
             'subjects.*.difficulty' => ['required', Rule::in(['facil', 'medio', 'dificil'])],
             'subjects.*.format' => ['required', Rule::in(['pdf', 'video'])],
             'studied_topics' => ['array'],
-            'studied_topics.*' => ['integer', 'exists:topics,id'],
+            'studied_topics.*' => ['integer', Rule::exists('topics', 'id')->where(fn ($q) => $q->whereDoesntHave('subtopics'))],
         ]);
 
         $user = $this->currentUser($request);

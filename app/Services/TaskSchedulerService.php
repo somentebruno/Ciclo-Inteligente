@@ -24,7 +24,7 @@ class TaskSchedulerService
 
     public function schedule(StudyCycle $cycle): void
     {
-        $cycle->loadMissing(['configuredSubjects.topics', 'studiedTopics']);
+        $cycle->loadMissing(['configuredSubjects.topics' => fn ($q) => $q->studyable(), 'studiedTopics']);
 
         // Regenerate only the pending queue; keep completed history intact.
         StudyTask::query()

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DesempenhoController;
+use App\Http\Controllers\EditalVerticalizadoController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PlanController;
@@ -52,6 +53,9 @@ Route::middleware('auth')->group(function () {
     Route::delete('/planos/{cycle}', [PlanController::class, 'destroy'])->name('planos.destroy');
 
     Route::get('/desempenho', [DesempenhoController::class, 'index'])->name('desempenho');
+
+    Route::get('/edital-verticalizado', [EditalVerticalizadoController::class, 'index'])->name('edital-verticalizado');
+    Route::post('/edital-verticalizado/topicos/{topic}/alternar', [EditalVerticalizadoController::class, 'toggleTopic'])->name('edital-verticalizado.topicos.alternar');
 
     // Perfil (Breeze)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
