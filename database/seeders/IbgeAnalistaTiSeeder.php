@@ -267,8 +267,20 @@ class IbgeAnalistaTiSeeder extends Seeder
                 'color' => '#0ea5e9',
                 'topics' => [
                     'Conceito de compilação e ligação de programas.',
-                    'Algoritmos e estrutura de dados: algoritmos de busca e de ordenação; 2.1. Estruturas de dados básicas (arrays, pilhas, listas e filas); 2.2. Tipos abstratos de dados.',
-                    'Programação orientada a objetos: encapsulamento; 3.1. classes e objetos; 3.2. herança e polimorfismo.',
+                    [
+                        'name' => 'Algoritmos e estrutura de dados: algoritmos de busca e de ordenação',
+                        'subtopics' => [
+                            'Estruturas de dados básicas (arrays, pilhas, listas e filas)',
+                            'Tipos abstratos de dados',
+                        ],
+                    ],
+                    [
+                        'name' => 'Programação orientada a objetos: encapsulamento',
+                        'subtopics' => [
+                            'Classes e objetos',
+                            'Herança e polimorfismo',
+                        ],
+                    ],
                     [
                         'name' => 'Linguagem de programação Java: variáveis e tipos de dados',
                         'subtopics' => [
@@ -323,20 +335,87 @@ class IbgeAnalistaTiSeeder extends Seeder
                     'Mapeamento Objeto Relacional.',
                     'ENGENHARIA DE SOFTWARE: Conceitos gerais.',
                     'Ciclo de vida de software.',
-                    'Projeto de sistemas de informação: conceitos fundamentais; 24.1. Planejamento das atividades de análise; 24.2. Projeto de entrada e de saída; 24.3. Controle de sistemas; 24.4. Implementação de sistemas.',
-                    'Processo de software: Processo Unificado (UP) (conceitos gerais, disciplinas, fases, papéis, atividades e artefatos); 25.1. Processos ágeis (eXtreme Programming, Scrum e Kanban); 25.2. CMM e CMMI (Capability Maturity Model Integration).',
+                    [
+                        'name' => 'Projeto de sistemas de informação: conceitos fundamentais',
+                        'subtopics' => [
+                            'Planejamento das atividades de análise',
+                            'Projeto de entrada e de saída',
+                            'Controle de sistemas',
+                            'Implementação de sistemas',
+                        ],
+                    ],
+                    [
+                        'name' => 'Processo de software: Processo Unificado (UP) (conceitos gerais, disciplinas, fases, papéis, atividades e artefatos)',
+                        'subtopics' => [
+                            'Processos ágeis (eXtreme Programming, Scrum e Kanban)',
+                            'CMM e CMMI (Capability Maturity Model Integration)',
+                        ],
+                    ],
                     'Análise, especificação e gerência de requisitos.',
-                    'Análise e projeto Orientados a Objetos: principais conceitos; 27.1. Identificação de classes primárias; 27.2. Classes derivadas; 27.3. Mensagens e seus tratadores; 27.4. Representação; 27.5. Linguagem de modelagem UML; 27.6. Padrões de projeto (Design patterns); 27.7. Injeção de dependência; 27.8. Inversão de controle; 27.9. Refatoração.',
-                    'Teste de software: técnicas de teste de software; 28.1. Teste unitário; 28.2. Teste de integração; 28.3. Teste funcional; 28.4. Teste de aceitação; 28.5. Teste de desempenho; 28.6. Teste de carga.',
-                    'Gestão da qualidade: qualidade de processo de software; 29.1. Qualidade do produto.',
+                    [
+                        'name' => 'Análise e projeto Orientados a Objetos: principais conceitos',
+                        'subtopics' => [
+                            'Identificação de classes primárias',
+                            'Classes derivadas',
+                            'Mensagens e seus tratadores',
+                            'Representação',
+                            'Linguagem de modelagem UML',
+                            'Padrões de projeto (Design patterns)',
+                            'Injeção de dependência',
+                            'Inversão de controle',
+                            'Refatoração',
+                        ],
+                    ],
+                    [
+                        'name' => 'Teste de software: técnicas de teste de software',
+                        'subtopics' => [
+                            'Teste unitário',
+                            'Teste de integração',
+                            'Teste funcional',
+                            'Teste de aceitação',
+                            'Teste de desempenho',
+                            'Teste de carga',
+                        ],
+                    ],
+                    [
+                        'name' => 'Gestão da qualidade: qualidade de processo de software',
+                        'subtopics' => [
+                            'Qualidade do produto',
+                        ],
+                    ],
                     'Técnicas de estimativa de projetos: APF (Análise por pontos de função).',
-                    'Arquiteturas de software: padrões de arquitetura de aplicações corporativas; 31.1. MVC (Model-View-Controller); 31.2. Service-Oriented Architecture (SOA); 31.3. Camadas de acesso a dados (OLEDB, ODBC, JDBC); 31.4. Software as a Service (SAAS).',
-                    'Acessibilidade e engenharia de usabilidade: conceitos básicos de engenharia de usabilidade; 32.1. Critérios, recomendações e guias de estilo; 32.2. Análise de requisitos de usabilidade; 32.3. Concepção, projeto e implementação de interfaces.',
-                    'APLICAÇÕES DISTRIBUÍDAS: Monitores de processos e transações (TP monitors); 33.1. Gerência e protocolos de transações distribuídas.',
+                    [
+                        'name' => 'Arquiteturas de software: padrões de arquitetura de aplicações corporativas',
+                        'subtopics' => [
+                            'MVC (Model-View-Controller)',
+                            'Service-Oriented Architecture (SOA)',
+                            'Camadas de acesso a dados (OLEDB, ODBC, JDBC)',
+                            'Software as a Service (SAAS)',
+                        ],
+                    ],
+                    [
+                        'name' => 'Acessibilidade e engenharia de usabilidade: conceitos básicos de engenharia de usabilidade',
+                        'subtopics' => [
+                            'Critérios, recomendações e guias de estilo',
+                            'Análise de requisitos de usabilidade',
+                            'Concepção, projeto e implementação de interfaces',
+                        ],
+                    ],
+                    [
+                        'name' => 'APLICAÇÕES DISTRIBUÍDAS: Monitores de processos e transações (TP monitors)',
+                        'subtopics' => [
+                            'Gerência e protocolos de transações distribuídas',
+                        ],
+                    ],
                     'Conceito de servidor de aplicação.',
                     'Aplicações móveis (tablets, celulares, PDAs e netbooks).',
                     'REDES DE COMPUTADORES E INTERNET: Conceitos básicos de comunicação de dados.',
-                    'Protocolo TCP/IP; Serviços: telnet, FTP, SFTP, SSH; 37.1. Segurança: firewalls, mecanismos de autenticação, criptografia, certificados digitais e vírus.',
+                    [
+                        'name' => 'Protocolo TCP/IP; Serviços: telnet, FTP, SFTP, SSH',
+                        'subtopics' => [
+                            'Segurança: firewalls, mecanismos de autenticação, criptografia, certificados digitais e vírus',
+                        ],
+                    ],
                     'TECNOLOGIAS WEB: Servidores Web (Apache e IIS).',
                     'SOAP e REST.',
                     'Linguagens de marcação: XML, HTML, XHTML e DHTML.',
@@ -348,15 +427,108 @@ class IbgeAnalistaTiSeeder extends Seeder
                     'ITIL V3.',
                     'COBIT.',
                     'Análise e modelagem Processos de Negócio: BPM e BPMN.',
-                    'Fundamentos da Computação: estrutura de dados; 49.1. algoritmos (busca, ordenação, complexidade); 49.2. programação orientada a objetos e programação funcional; 49.3. vercionamento (git).',
-                    'Engenharia de Software e Requisitos: engenharia de requisitos (elicitação, análise, validação); 50.1. modelagem (UML, casos de uso, user stories); 50.2. arquiteturas (REST, microsserviços, event-driven); 50.3. padrões de projeto; 50.4. testes (unitário, integração, contrato); 50.5. CI/CD e DevOps.',
-                    'Desenvolvimento (incluindo Web): HTTP/HTTPS, APIs REST e GraphQL; 51.1. backend (Node.js, Python, Java); 51.2. frameworks: Node.js/Express, Python/FastAPI ou Django REST Framework, Java/Spring Boot; 51.3. frontend moderno (SPA – Svelte, React ou similar); 51.4. HTML5, CSS3 e JavaScript moderno (ES6+); 51.5. TypeScript (tipagem estática, interfaces e generics); 51.6. segurança (OAuth2, JWT, OWASP Top 10); 51.7. integração de serviços; 51.8. ambientes de desenvolvimento (Visual Studio Code, Visual Studio .NET); 51.9. XML, XML Schema, JSON.',
-                    'Bancos de Dados: banco de dados relacionais incluindo extensão espacial (Postgresql/PostGIS); 52.1. modelagem relacional (SQL); 52.2. modelagem de dados; 52.3. SQL (DDL, DML, DCL); 52.4. linguagem procedural PL/pgSQL; 52.5. transações e consistência; 52.6. indexação (incluindo índices espaciais) e otimização; 52.7. bancos de dados NoSQL (MongoDB, Redis).',
-                    'Dados Geoespaciais: modelos de dados geográficos (vetor e raster); 53.1. sistemas de referência (CRS, projeções cartográficas); 53.2. operações espaciais (buffer, overlay, spatial Join, entre outras); 53.3. python geoespacial (GeoPandas, Shapely, Fiona, Rasterio, PyProj); 53.4. serviços e Padrões Open Geospatial Consortium (OGC): WMS, WFS, WCS, CSW; 53.5. OGC APIs; 53.6. servidores de mapas e metadados espaciais: GeoServer e Geonetwork (conceitos e configuração); 53.7 tiles e pirâmides de mapa; 53.8. protocolos XYZ e WMTS; 53.9. metadados geoespaciais: ISO 19115 / 191115-1// 19115-2 / 19115-3/ 19139; 53.10. Infraestruturas de Dados Espaciais (IDE) e interoperabilidade.',
-                    'Integração e Interoperabilidade: Arquitetura Orientada a Serviço (SOA); 54.1. web services e GeoWEB services (REST); 54.2. Open API; APIs e integração de sistemas; 54.3. formatos e esquemas padronizados: JSON, GeoJSON, XML, XML Schema; 54.4. catálogos e descoberta de dados (CSW, DCAT).',
-                    'Inteligência Artificial Aplicada: fundamentos de IA e aprendizado de máquina; 55.1. uso de IA no desenvolvimento (LLMs, copilots); 55.2. engenharia de prompt; 55.3. automação de código e testes com IA; 55.4. uso de IA para análise de dados (incluindo geoespaciais); 55.5. ética e governança em IA.',
-                    'Governança, Dados e Legislação: LGPD (Lei Geral de Proteção de Dados); 56.1. Lei de Acesso à Informação; 56.2. governança de dados; qualidade de dados; 56.3. dados abertos e interoperabilidade governamental.',
-                    'Sistemas Operacionais, Redes e Segurança (Fundamentos Aplicados): sistemas operacionais - conceitos básicos (processos, threads, memória); 57.1. sistemas operacionais Windows, Linux (comandos básicos, permissões); containers (Docker – conceitos); 57.2. modelo TCP/IP – conceitos; 57.3. HTTP/HTTPS (requisição, resposta, headers, status codes); 57.4. DNS, IP, portas; 57.5. comunicação cliente-servidor; 57.6. latência, throughput e noções de escalabilidade; 57.7. autenticação e autorização (OAuth2, JWT); 57.8. criptografia básica (TLS/HTTPS); 57.9. OWASP Top 10 (principais vulnerabilidades); 57.10. segurança em APIs; 57.11. controle de acesso a dados (incluindo LGPD).',
+                    [
+                        'name' => 'Fundamentos da Computação: estrutura de dados',
+                        'subtopics' => [
+                            'Algoritmos (busca, ordenação, complexidade)',
+                            'Programação orientada a objetos e programação funcional',
+                            'Versionamento (git)',
+                        ],
+                    ],
+                    [
+                        'name' => 'Engenharia de Software e Requisitos: engenharia de requisitos (elicitação, análise, validação)',
+                        'subtopics' => [
+                            'Modelagem (UML, casos de uso, user stories)',
+                            'Arquiteturas (REST, microsserviços, event-driven)',
+                            'Padrões de projeto',
+                            'Testes (unitário, integração, contrato)',
+                            'CI/CD e DevOps',
+                        ],
+                    ],
+                    [
+                        'name' => 'Desenvolvimento (incluindo Web): HTTP/HTTPS, APIs REST e GraphQL',
+                        'subtopics' => [
+                            'Backend (Node.js, Python, Java)',
+                            'Frameworks: Node.js/Express, Python/FastAPI ou Django REST Framework, Java/Spring Boot',
+                            'Frontend moderno (SPA – Svelte, React ou similar)',
+                            'HTML5, CSS3 e JavaScript moderno (ES6+)',
+                            'TypeScript (tipagem estática, interfaces e generics)',
+                            'Segurança (OAuth2, JWT, OWASP Top 10)',
+                            'Integração de serviços',
+                            'Ambientes de desenvolvimento (Visual Studio Code, Visual Studio .NET)',
+                            'XML, XML Schema, JSON',
+                        ],
+                    ],
+                    [
+                        'name' => 'Bancos de Dados: banco de dados relacionais incluindo extensão espacial (Postgresql/PostGIS)',
+                        'subtopics' => [
+                            'Modelagem relacional (SQL)',
+                            'Modelagem de dados',
+                            'SQL (DDL, DML, DCL)',
+                            'Linguagem procedural PL/pgSQL',
+                            'Transações e consistência',
+                            'Indexação (incluindo índices espaciais) e otimização',
+                            'Bancos de dados NoSQL (MongoDB, Redis)',
+                        ],
+                    ],
+                    [
+                        'name' => 'Dados Geoespaciais: modelos de dados geográficos (vetor e raster)',
+                        'subtopics' => [
+                            'Sistemas de referência (CRS, projeções cartográficas)',
+                            'Operações espaciais (buffer, overlay, spatial Join, entre outras)',
+                            'Python geoespacial (GeoPandas, Shapely, Fiona, Rasterio, PyProj)',
+                            'Serviços e Padrões Open Geospatial Consortium (OGC): WMS, WFS, WCS, CSW',
+                            'OGC APIs',
+                            'Servidores de mapas e metadados espaciais: GeoServer e Geonetwork (conceitos e configuração)',
+                            'Tiles e pirâmides de mapa',
+                            'Protocolos XYZ e WMTS',
+                            'Metadados geoespaciais: ISO 19115 / 191115-1// 19115-2 / 19115-3/ 19139',
+                            'Infraestruturas de Dados Espaciais (IDE) e interoperabilidade',
+                        ],
+                    ],
+                    [
+                        'name' => 'Integração e Interoperabilidade: Arquitetura Orientada a Serviço (SOA)',
+                        'subtopics' => [
+                            'Web services e GeoWEB services (REST)',
+                            'Open API; APIs e integração de sistemas',
+                            'Formatos e esquemas padronizados: JSON, GeoJSON, XML, XML Schema',
+                            'Catálogos e descoberta de dados (CSW, DCAT)',
+                        ],
+                    ],
+                    [
+                        'name' => 'Inteligência Artificial Aplicada: fundamentos de IA e aprendizado de máquina',
+                        'subtopics' => [
+                            'Uso de IA no desenvolvimento (LLMs, copilots)',
+                            'Engenharia de prompt',
+                            'Automação de código e testes com IA',
+                            'Uso de IA para análise de dados (incluindo geoespaciais)',
+                            'Ética e governança em IA',
+                        ],
+                    ],
+                    [
+                        'name' => 'Governança, Dados e Legislação: LGPD (Lei Geral de Proteção de Dados)',
+                        'subtopics' => [
+                            'Lei de Acesso à Informação',
+                            'Governança de dados; qualidade de dados',
+                            'Dados abertos e interoperabilidade governamental',
+                        ],
+                    ],
+                    [
+                        'name' => 'Sistemas Operacionais, Redes e Segurança (Fundamentos Aplicados): sistemas operacionais - conceitos básicos (processos, threads, memória)',
+                        'subtopics' => [
+                            'Sistemas operacionais Windows, Linux (comandos básicos, permissões); containers (Docker – conceitos)',
+                            'Modelo TCP/IP – conceitos',
+                            'HTTP/HTTPS (requisição, resposta, headers, status codes)',
+                            'DNS, IP, portas',
+                            'Comunicação cliente-servidor',
+                            'Latência, throughput e noções de escalabilidade',
+                            'Autenticação e autorização (OAuth2, JWT)',
+                            'Criptografia básica (TLS/HTTPS)',
+                            'OWASP Top 10 (principais vulnerabilidades)',
+                            'Segurança em APIs',
+                            'Controle de acesso a dados (incluindo LGPD)',
+                        ],
+                    ],
                 ],
                 // No prep-course aulas tracked for this subject yet.
                 'aulas' => [],
