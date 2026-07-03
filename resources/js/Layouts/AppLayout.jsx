@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Head, Link, usePage, router } from '@inertiajs/react';
 
 /* --- Inline icons (heroicons-style) ------------------------------------- */
@@ -123,6 +123,39 @@ function Sidebar({ currentUrl, onNavigate }) {
     );
 }
 
+/* --- Flash de sucesso/erro (back()->with('success'|'error', ...)) ------- */
+function FlashToast() {
+    const { props } = usePage();
+    const { success, error } = props.flash ?? {};
+    const [message, setMessage] = useState(null);
+    const [visible, setVisible] = useState(false);
+
+    useEffect(() => {
+        if (!success && !error) return;
+        setMessage(success ? { type: 'success', text: success } : { type: 'error', text: error });
+        setVisible(true);
+        const hide = setTimeout(() => setVisible(false), 4000);
+        return () => clearTimeout(hide);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [success, error]);
+
+    if (!message) return null;
+
+    return (
+        <div
+            role="status"
+            className={
+                'fixed bottom-24 right-6 z-50 max-w-sm rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg transition-all duration-300 ' +
+                (visible ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-2 opacity-0') +
+                ' ' +
+                (message.type === 'success' ? 'bg-emerald-600' : 'bg-red-600')
+            }
+        >
+            {message.text}
+        </div>
+    );
+}
+
 /* --- Main layout -------------------------------------------------------- */
 export default function AppLayout({ title, children }) {
     const { url, props } = usePage();
@@ -225,6 +258,8 @@ export default function AppLayout({ title, children }) {
 
                 <main className="px-4 py-6 sm:px-6 lg:px-8">{children}</main>
             </div>
+
+            <FlashToast />
         </div>
     );
 }
