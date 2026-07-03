@@ -32,7 +32,11 @@ class PlanejamentoController extends Controller
         }
 
         $items = $plan->items()
-            ->with(['subject:id,name,color', 'subject.topics' => fn ($q) => $q->orderBy('order')])
+            ->with([
+                'subject:id,name,color',
+                'subject.topics' => fn ($q) => $q->studyable()->orderBy('order'),
+                'subject.aulas' => fn ($q) => $q->orderBy('order'),
+            ])
             ->get();
 
         // Minutes studied per subject in the current lap, fed by the study
@@ -79,9 +83,10 @@ class PlanejamentoController extends Controller
             ->where('study_sessions.study_cycle_id', $plan->id)
             ->whereNotNull('study_sessions.duration_minutes')
             ->leftJoin('topics', 'study_sessions.topic_id', '=', 'topics.id')
+            ->leftJoin('aulas', 'study_sessions.aula_id', '=', 'aulas.id')
             ->leftJoin('study_cycle_items', 'study_sessions.study_cycle_item_id', '=', 'study_cycle_items.id')
             ->selectRaw(
-                'study_sessions.*, topics.name as topic_name, '.
+                'study_sessions.*, topics.name as topic_name, aulas.name as aula_name, '.
                 'COALESCE(topics.subject_id, study_cycle_items.subject_id) as resolved_subject_id'
             )
             ->orderByDesc('studied_at')
@@ -110,6 +115,14 @@ class PlanejamentoController extends Controller
                         'minutes' => $t->estimated_minutes,
                     ])
                     ->values(),
+                'aulas' => ($item->subject?->aulas ?? collect())
+                    ->values()
+                    ->map(fn ($a) => [
+                        'id' => $a->id,
+                        'label' => $a->name,
+                        'minutes' => $a->minutes,
+                    ])
+                    ->values(),
                 'recent_sessions' => ($recentBySubject[$item->subject_id] ?? collect())
                     ->take(30)
                     ->map(fn ($s) => [
@@ -117,6 +130,8 @@ class PlanejamentoController extends Controller
                         'date' => Carbon::parse($s->studied_at)->toDateString(),
                         'subject' => $item->subject?->name ?? '—',
                         'topic' => $s->topic_name,
+                        'source' => $s->source,
+                        'aula_name' => $s->aula_name,
                         'category' => $s->category,
                         'material' => $s->material,
                         'pages_read' => $s->pages_read,
@@ -199,6 +214,8 @@ class PlanejamentoController extends Controller
             'date' => ['nullable', 'date'],
             'duration_minutes' => ['required', 'integer', 'min:1', 'max:1440'],
             'topic_id' => ['nullable', 'integer', 'exists:topics,id'],
+            'source' => ['nullable', 'string', 'in:aula,pdf,outro'],
+            'aula_id' => ['nullable', 'integer', 'exists:aulas,id'],
             'category' => ['nullable', 'string', 'max:100'],
             'material' => ['nullable', 'string', 'max:255'],
             'pages_read' => ['nullable', 'integer', 'min:0', 'max:100000'],
@@ -229,6 +246,8 @@ class PlanejamentoController extends Controller
             'study_cycle_id' => $plan->id,
             'study_cycle_item_id' => $item->id,
             'topic_id' => $data['topic_id'] ?? null,
+            'source' => $data['source'] ?? null,
+            'aula_id' => $data['aula_id'] ?? null,
             'category' => $data['category'] ?? null,
             'material' => $data['material'] ?? null,
             'pages_read' => $data['pages_read'] ?? null,

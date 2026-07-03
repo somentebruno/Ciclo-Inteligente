@@ -21,6 +21,8 @@ class StudySession extends Model
         'study_cycle_id',
         'study_cycle_item_id',
         'topic_id',
+        'source',
+        'aula_id',
         'category',
         'material',
         'pages_read',
@@ -86,5 +88,13 @@ class StudySession extends Model
     public function topic(): BelongsTo
     {
         return $this->belongsTo(Topic::class);
+    }
+
+    /**
+     * @return BelongsTo<Aula, StudySession>
+     */
+    public function aula(): BelongsTo
+    {
+        return $this->belongsTo(Aula::class);
     }
 }

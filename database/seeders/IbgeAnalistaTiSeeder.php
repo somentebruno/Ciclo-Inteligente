@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Cargo;
 use App\Models\Course;
+use App\Models\Aula;
 use App\Models\Subject;
 use App\Models\Topic;
 use Illuminate\Database\Seeder;
@@ -38,13 +39,31 @@ class IbgeAnalistaTiSeeder extends Seeder
                 'weight' => 6,
                 'difficulty' => 3,
                 'color' => '#3577fb',
-                // Real aulas from the student's prep-course platform (name +
-                // duration), replacing the flat edital items with the actual
-                // lesson-by-lesson content. Grouped below by the edital block
-                // ("Tópico") they come from, then flattened into one ordered
-                // rotation — this app tracks topics as a single flat sequence
-                // per subject, it has no separate "Tópico" grouping level.
+                // PLACEHOLDER: restored from the pre-migration edital text
+                // (git show 5f8c379^). Replace with the official edital
+                // breakdown (topics + subtopics, ~171 items for the biggest
+                // subject) when available.
                 'topics' => [
+                    'Compreensão e interpretação de texto.',
+                    'Significação das palavras: sinônimos, antônimos, homônimos e parônimos.',
+                    'Pontuação.',
+                    'Estrutura e sequência lógica de frases e parágrafos.',
+                    'Ortografia oficial. Acentuação gráfica.',
+                    'Classes das palavras.',
+                    'Concordância nominal e verbal.',
+                    'Regência nominal e verbal.',
+                    'Emprego dos verbos regulares, irregulares e anômalos. Vozes dos verbos.',
+                    'Emprego dos pronomes.',
+                    'Sintaxe: termos essenciais, integrantes e acessórios da oração.',
+                    'Coesão e coerência (referenciação, substituição, repetição, conectores; tempos e modos verbais).',
+                    'Redação e reescrita de comunicados, ofícios e registros operacionais (clareza, objetividade, padrão formal).',
+                ],
+                // Real aulas from the student's prep-course platform (name +
+                // duration) — an attachable study resource, independent of
+                // the edital topic list above. Grouped by the edital block
+                // ("Tópico") they come from, then flattened into one ordered
+                // list — aulas aren't tied to any specific topic.
+                'aulas' => [
                     // Tópico 1 — arts. 3–9 (pontuação, ortografia, morfologia,
                     // sintaxe, verbos).
                     ['name' => 'Ortografia e Acentuação', 'minutes' => 24],
@@ -156,9 +175,16 @@ class IbgeAnalistaTiSeeder extends Seeder
                 'weight' => 5,
                 'difficulty' => 3,
                 'color' => '#8b5cf6',
+                // PLACEHOLDER: restored from the pre-migration edital text
+                // (git show 5f8c379^). Replace with the official edital
+                // breakdown when available.
+                'topics' => [
+                    'Avaliação da habilidade do candidato em entender a estrutura lógica de relações entre pessoas, lugares, coisas e/ou eventos, deduzir novas informações e avaliar as condições usadas para estabelecer a estrutura dessas relações.',
+                    'Áreas das questões: I - estruturas lógicas; II - lógica de argumentação; III - diagramas lógicos; IV - aritmética; V - álgebra e geometria básicas.',
+                ],
                 // Real aulas from the student's prep-course platform (see the
                 // Língua Portuguesa entry above for the rationale).
-                'topics' => [
+                'aulas' => [
                     // Tópico 1 — art. 1 (lógica sequencial).
                     ['name' => 'Lógica Sequencial - Principais Macetes', 'minutes' => 31],
                     ['name' => 'Lógica Sequencial - Principais Macetes II', 'minutes' => 30],
@@ -243,12 +269,46 @@ class IbgeAnalistaTiSeeder extends Seeder
                     'Conceito de compilação e ligação de programas.',
                     'Algoritmos e estrutura de dados: algoritmos de busca e de ordenação; 2.1. Estruturas de dados básicas (arrays, pilhas, listas e filas); 2.2. Tipos abstratos de dados.',
                     'Programação orientada a objetos: encapsulamento; 3.1. classes e objetos; 3.2. herança e polimorfismo.',
-                    'Linguagem de programação Java: variáveis e tipos de dados; 4.1. Operadores e expressões; 4.2. Estruturas de controle (sequência, seleção e repetição); 4.3. Tratamento de exceção; 4.4. Depuração de programas; 4.5. Construção e uso de componentes e bibliotecas; 4.6. Acesso a bancos de dados; 4.7. Definição de formulários; 4.8. Java EE; 4.9. Desenvolvimento de aplicações com Eclipse.',
-                    'Linguagem de programação C#: variáveis e tipos de dados; 5.1. Operadores e expressões; 5.2. Estruturas de controle (sequência, seleção e repetição); 5.3. Tratamento de exceção; 5.4. Depuração de programas; 5.5. Construção e uso de componentes e bibliotecas; 5.6. Acesso a bancos de dados; 5.7. Definição de formulários; 5.8. Desenvolvimento de aplicações com Visual Studio.',
+                    [
+                        'name' => 'Linguagem de programação Java: variáveis e tipos de dados',
+                        'subtopics' => [
+                            'Operadores e expressões',
+                            'Estruturas de controle (sequência, seleção e repetição)',
+                            'Tratamento de exceção',
+                            'Depuração de programas',
+                            'Construção e uso de componentes e bibliotecas',
+                            'Acesso a bancos de dados',
+                            'Definição de formulários',
+                            'Java EE',
+                            'Desenvolvimento de aplicações com Eclipse',
+                        ],
+                    ],
+                    [
+                        'name' => 'Linguagem de programação C#: variáveis e tipos de dados',
+                        'subtopics' => [
+                            'Operadores e expressões',
+                            'Estruturas de controle (sequência, seleção e repetição)',
+                            'Tratamento de exceção',
+                            'Depuração de programas',
+                            'Construção e uso de componentes e bibliotecas',
+                            'Acesso a bancos de dados',
+                            'Definição de formulários',
+                            'Desenvolvimento de aplicações com Visual Studio',
+                        ],
+                    ],
                     'NET. BANCOS DE DADOS: Modelagem conceitual de dados: abordagem E-R (entidades e atributos; relacionamentos e cardinalidades; generalização).',
                     'Conceitos, arquiteturas e paradigmas de sistemas de bancos de dados.',
                     'Modelo relacional: conceitos básicos.',
-                    'Projeto de bancos de dados relacionais: esquemas de bancos de dados relacionais; 9.1. Chave primária, alternativa e estrangeira; 9.2. Dependência funcional; 9.3. Normalização; 9.4. Restrições de integridade; 9.5. Mapeamento de modelo ER para modelo Relacional.',
+                    [
+                        'name' => 'Projeto de bancos de dados relacionais: esquemas de bancos de dados relacionais',
+                        'subtopics' => [
+                            'Chave primária, alternativa e estrangeira',
+                            'Dependência funcional',
+                            'Normalização',
+                            'Restrições de integridade',
+                            'Mapeamento de modelo ER para modelo Relacional',
+                        ],
+                    ],
                     'Linguagens de definição (DDL), manipulação (DML) e controle de dados (DCL).',
                     'Linguagem SQL Padrão ANSI 1999.',
                     'Processamento de transações, controle de concorrência e recuperação.',
@@ -298,6 +358,8 @@ class IbgeAnalistaTiSeeder extends Seeder
                     'Governança, Dados e Legislação: LGPD (Lei Geral de Proteção de Dados); 56.1. Lei de Acesso à Informação; 56.2. governança de dados; qualidade de dados; 56.3. dados abertos e interoperabilidade governamental.',
                     'Sistemas Operacionais, Redes e Segurança (Fundamentos Aplicados): sistemas operacionais - conceitos básicos (processos, threads, memória); 57.1. sistemas operacionais Windows, Linux (comandos básicos, permissões); containers (Docker – conceitos); 57.2. modelo TCP/IP – conceitos; 57.3. HTTP/HTTPS (requisição, resposta, headers, status codes); 57.4. DNS, IP, portas; 57.5. comunicação cliente-servidor; 57.6. latência, throughput e noções de escalabilidade; 57.7. autenticação e autorização (OAuth2, JWT); 57.8. criptografia básica (TLS/HTTPS); 57.9. OWASP Top 10 (principais vulnerabilidades); 57.10. segurança em APIs; 57.11. controle de acesso a dados (incluindo LGPD).',
                 ],
+                // No prep-course aulas tracked for this subject yet.
+                'aulas' => [],
             ],
         ];
 
@@ -312,18 +374,44 @@ class IbgeAnalistaTiSeeder extends Seeder
                 ]
             );
 
-            $names = collect($data['topics'])->map(fn ($t) => is_array($t) ? $t['name'] : $t);
+            // Edital topics — flat list, one string per item, except when an
+            // item carries 'subtopics': then it becomes a grouping header
+            // (not itself studyable — see Topic::scopeStudyable()) and each
+            // subtopic gets its own leaf row underneath it.
+            $topicNames = collect($data['topics'])->map(fn ($t) => is_array($t) ? $t['name'] : $t);
+            foreach ($data['topics'] as $i => $item) {
+                $name = is_array($item) ? $item['name'] : $item;
 
-            foreach ($data['topics'] as $i => $topic) {
-                Topic::updateOrCreate(
-                    ['subject_id' => $subject->id, 'name' => is_array($topic) ? $topic['name'] : $topic],
-                    ['order' => $i, 'estimated_minutes' => is_array($topic) ? $topic['minutes'] : 45]
+                $topic = Topic::updateOrCreate(
+                    ['subject_id' => $subject->id, 'parent_id' => null, 'name' => $name],
+                    ['order' => $i, 'estimated_minutes' => 45]
+                );
+
+                $subtopicNames = collect(is_array($item) ? ($item['subtopics'] ?? []) : []);
+                foreach ($subtopicNames as $j => $subName) {
+                    Topic::updateOrCreate(
+                        ['subject_id' => $subject->id, 'parent_id' => $topic->id, 'name' => $subName],
+                        ['order' => $j, 'estimated_minutes' => 45]
+                    );
+                }
+                Topic::where('parent_id', $topic->id)->whereNotIn('name', $subtopicNames)->delete();
+            }
+
+            // Prep-course aulas — separate resource, not tied to any topic.
+            $aulaNames = collect($data['aulas'])->pluck('name');
+            foreach ($data['aulas'] as $i => $aula) {
+                Aula::updateOrCreate(
+                    ['subject_id' => $subject->id, 'name' => $aula['name']],
+                    ['order' => $i, 'minutes' => $aula['minutes']]
                 );
             }
 
-            // The seeder is the single source of truth for topics: drop ones
-            // no longer listed (e.g. replaced by real aulas from the prep course).
-            Topic::where('subject_id', $subject->id)->whereNotIn('name', $names)->delete();
+            // The seeder is the single source of truth for topics/aulas: drop
+            // ones no longer listed (top-level only — subtopics were already
+            // pruned per-parent above, and dropping a header cascades to its
+            // subtopics via the FK).
+            Topic::where('subject_id', $subject->id)->whereNull('parent_id')->whereNotIn('name', $topicNames)->delete();
+            Aula::where('subject_id', $subject->id)->whereNotIn('name', $aulaNames)->delete();
         }
     }
 }

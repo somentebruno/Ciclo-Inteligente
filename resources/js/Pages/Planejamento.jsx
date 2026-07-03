@@ -748,7 +748,14 @@ function HistoryRow({ s }) {
                     {s.topic && <p className="text-xs text-slate-400">{s.topic}</p>}
                 </div>
 
-                {s.material && (
+                {s.source === 'aula' && s.aula_name && (
+                    <span className="flex items-center gap-1 text-xs text-slate-500">
+                        <BookmarkIcon />
+                        {s.aula_name}
+                    </span>
+                )}
+
+                {s.source !== 'aula' && s.material && (
                     <span className="flex items-center gap-1 text-xs text-slate-500">
                         <BookmarkIcon />
                         {s.material}
@@ -1072,6 +1079,11 @@ function StudyLogModal({ item, subjects, onClose }) {
     const [topicId, setTopicId] = useState(null);
     const [showTopicList, setShowTopicList] = useState(false);
 
+    const [source, setSource] = useState('aula'); // 'aula' | 'pdf' | 'outro'
+    const [aulaQuery, setAulaQuery] = useState('');
+    const [aulaId, setAulaId] = useState(null);
+    const [showAulaList, setShowAulaList] = useState(false);
+
     const [material, setMaterial] = useState('');
 
     const [theoryDone, setTheoryDone] = useState(false);
@@ -1082,7 +1094,6 @@ function StudyLogModal({ item, subjects, onClose }) {
     const [correct, setCorrect] = useState('');
     const [wrong, setWrong] = useState('');
     const [pages, setPages] = useState([{ start: '', end: '' }]);
-    const [videos, setVideos] = useState([{ title: '', start: '', end: '' }]);
 
     const [comments, setComments] = useState('');
     const [saving, setSaving] = useState(false);
@@ -1090,6 +1101,11 @@ function StudyLogModal({ item, subjects, onClose }) {
     const topics = subject?.topics ?? [];
     const filteredTopics = topics
         .filter((t) => t.label.toLowerCase().includes(topicQuery.toLowerCase()))
+        .slice(0, 8);
+
+    const aulas = subject?.aulas ?? [];
+    const filteredAulas = aulas
+        .filter((a) => a.label.toLowerCase().includes(aulaQuery.toLowerCase()))
         .slice(0, 8);
 
     const addReviewInterval = () => {
@@ -1113,17 +1129,7 @@ function StudyLogModal({ item, subjects, onClose }) {
         setNewCatColor(PASTEL_COLORS[0]);
     };
 
-    // Vídeoaulas não têm colunas próprias — viram uma linha legível dentro do
-    // comentário, junto do texto livre digitado pelo aluno.
-    const buildNotes = () => {
-        const parts = [];
-        const videoEntries = videos
-            .filter((v) => v.title.trim() || v.start || v.end)
-            .map((v) => `${v.title || 'Vídeo'} (${v.start || '00:00'}–${v.end || '00:00'})`);
-        if (videoEntries.length) parts.push(`Videoaulas: ${videoEntries.join('; ')}`);
-        if (comments.trim()) parts.push(comments.trim());
-        return parts.join('\n') || null;
-    };
+    const buildNotes = () => comments.trim() || null;
 
     const totalPagesRead = pages.reduce((sum, p) => {
         const start = Number(p.start);
@@ -1146,8 +1152,10 @@ function StudyLogModal({ item, subjects, onClose }) {
                 date: dateChoice === 'hoje' ? todayISO() : dateChoice === 'ontem' ? yesterdayISO() : customDate,
                 duration_minutes: durationMinutes,
                 topic_id: topicId,
+                source,
+                aula_id: source === 'aula' ? aulaId : null,
                 category,
-                material: material.trim() || null,
+                material: source === 'aula' ? null : (material.trim() || null),
                 pages_read: totalPagesRead > 0 ? totalPagesRead : null,
                 questions_total: correct !== '' || wrong !== '' ? (Number(correct) || 0) + (Number(wrong) || 0) : null,
                 questions_correct: correct !== '' ? Number(correct) : null,
@@ -1213,6 +1221,36 @@ function StudyLogModal({ item, subjects, onClose }) {
                     )}
                 </div>
 
+                {/* Fonte */}
+                <div className="mt-5 flex flex-wrap items-center gap-2">
+                    <FieldLabel>Fonte</FieldLabel>
+                    {[
+                        { key: 'aula', label: 'Aula do cursinho' },
+                        { key: 'pdf', label: 'PDF' },
+                        { key: 'outro', label: 'Outro' },
+                    ].map((s) => (
+                        <button
+                            key={s.key}
+                            type="button"
+                            onClick={() => {
+                                setSource(s.key);
+                                if (s.key !== 'aula') {
+                                    setAulaId(null);
+                                    setAulaQuery('');
+                                }
+                            }}
+                            className={
+                                'rounded-full px-4 py-1.5 text-xs font-bold uppercase tracking-wide transition ' +
+                                (source === s.key
+                                    ? 'bg-emerald-600 text-white'
+                                    : 'border border-slate-300 bg-white text-slate-500 hover:border-emerald-400')
+                            }
+                        >
+                            {s.label}
+                        </button>
+                    ))}
+                </div>
+
                 {/* Campos principais */}
                 <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
                     {/* Categoria */}
@@ -1265,6 +1303,8 @@ function StudyLogModal({ item, subjects, onClose }) {
                                 setSubjectItemId(Number(e.target.value));
                                 setTopicId(null);
                                 setTopicQuery('');
+                                setAulaId(null);
+                                setAulaQuery('');
                             }}
                             className={fieldClass}
                         >
@@ -1338,8 +1378,8 @@ function StudyLogModal({ item, subjects, onClose }) {
                                             setTopicQuery(t.label);
                                             setTopicId(t.id);
                                             setShowTopicList(false);
-                                            // Pré-preenche com a duração real da aula; o
-                                            // aluno pode apagar e digitar outro valor.
+                                            // Pré-preenche com a duração estimada do tópico;
+                                            // o aluno pode apagar e digitar outro valor.
                                             if (t.minutes) {
                                                 setHh(String(Math.floor(t.minutes / 60)).padStart(2, '0'));
                                                 setMm(String(t.minutes % 60).padStart(2, '0'));
@@ -1355,17 +1395,61 @@ function StudyLogModal({ item, subjects, onClose }) {
                         )}
                     </div>
 
-                    {/* Material */}
-                    <div className="sm:col-span-2">
-                        <FieldLabel>Material</FieldLabel>
-                        <input
-                            type="text"
-                            value={material}
-                            onChange={(e) => setMaterial(e.target.value)}
-                            placeholder="PDF, livro, videoaula…"
-                            className={fieldClass}
-                        />
-                    </div>
+                    {/* Aula do cursinho (autocomplete) ou Material, conforme a Fonte */}
+                    {source === 'aula' ? (
+                        <div className="relative sm:col-span-2">
+                            <FieldLabel>Aula do cursinho</FieldLabel>
+                            <input
+                                type="text"
+                                value={aulaQuery}
+                                onFocus={() => setShowAulaList(true)}
+                                onChange={(e) => {
+                                    setAulaQuery(e.target.value);
+                                    setAulaId(null);
+                                    setShowAulaList(true);
+                                }}
+                                onBlur={() => setTimeout(() => setShowAulaList(false), 150)}
+                                placeholder="Buscar aula do cursinho…"
+                                className={fieldClass}
+                            />
+                            {showAulaList && filteredAulas.length > 0 && (
+                                <div className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white py-1 shadow-lg">
+                                    {filteredAulas.map((a) => (
+                                        <button
+                                            key={a.id}
+                                            type="button"
+                                            onMouseDown={() => {
+                                                setAulaQuery(a.label);
+                                                setAulaId(a.id);
+                                                setShowAulaList(false);
+                                                // Pré-preenche com a duração real da aula; o
+                                                // aluno pode apagar e digitar outro valor.
+                                                if (a.minutes) {
+                                                    setHh(String(Math.floor(a.minutes / 60)).padStart(2, '0'));
+                                                    setMm(String(a.minutes % 60).padStart(2, '0'));
+                                                    setSs('00');
+                                                }
+                                            }}
+                                            className="block w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                        >
+                                            {a.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="sm:col-span-2">
+                            <FieldLabel>Material</FieldLabel>
+                            <input
+                                type="text"
+                                value={material}
+                                onChange={(e) => setMaterial(e.target.value)}
+                                placeholder="PDF, livro, capítulo…"
+                                className={fieldClass}
+                            />
+                        </div>
+                    )}
                 </div>
 
                 {/* Checkboxes */}
@@ -1428,7 +1512,7 @@ function StudyLogModal({ item, subjects, onClose }) {
                 )}
 
                 {/* Métricas */}
-                <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="rounded-lg border border-emerald-200 p-4">
                         <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
                             Questões
@@ -1491,57 +1575,6 @@ function StudyLogModal({ item, subjects, onClose }) {
                             type="button"
                             onClick={() => setPages((prev) => [...prev, { start: '', end: '' }])}
                             aria-label="Adicionar páginas"
-                            className="mt-3 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white transition hover:bg-emerald-600"
-                        >
-                            <SmallPlusIcon />
-                        </button>
-                    </div>
-
-                    <div className="rounded-lg border border-emerald-200 p-4">
-                        <p className="text-xs font-bold uppercase tracking-wider text-emerald-700">
-                            Videoaulas
-                        </p>
-                        <div className="mt-3 space-y-2">
-                            {videos.map((v, i) => (
-                                <div key={i} className="space-y-2">
-                                    <div>
-                                        <label className="block text-xs text-slate-500">Título</label>
-                                        <input
-                                            type="text"
-                                            value={v.title}
-                                            onChange={(e) => updateRow(setVideos, i, 'title', e.target.value)}
-                                            className="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
-                                        />
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div>
-                                            <label className="block text-xs text-slate-500">Início</label>
-                                            <input
-                                                type="text"
-                                                placeholder="00:00"
-                                                value={v.start}
-                                                onChange={(e) => updateRow(setVideos, i, 'start', e.target.value)}
-                                                className="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-xs text-slate-500">Fim</label>
-                                            <input
-                                                type="text"
-                                                placeholder="00:00"
-                                                value={v.end}
-                                                onChange={(e) => updateRow(setVideos, i, 'end', e.target.value)}
-                                                className="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                        <button
-                            type="button"
-                            onClick={() => setVideos((prev) => [...prev, { title: '', start: '', end: '' }])}
-                            aria-label="Adicionar videoaula"
                             className="mt-3 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 text-white transition hover:bg-emerald-600"
                         >
                             <SmallPlusIcon />

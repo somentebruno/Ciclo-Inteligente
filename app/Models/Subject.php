@@ -50,6 +50,14 @@ class Subject extends Model
     }
 
     /**
+     * @return HasMany<Aula>
+     */
+    public function aulas(): HasMany
+    {
+        return $this->hasMany(Aula::class);
+    }
+
+    /**
      * @return HasMany<StudyCycleItem>
      */
     public function cycleItems(): HasMany
