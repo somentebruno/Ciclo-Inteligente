@@ -1073,10 +1073,11 @@ function CycleDonut({ sequence, totalLabel }) {
     const size = 280;
     const c = size / 2;
     const planned = sequence.reduce((s, i) => s + i.planned_minutes, 0);
+    const [hover, setHover] = useState(null); // { item, x, y }
 
     if (!planned) return null;
 
-    const gap = sequence.length > 1 ? 3 : 0; // degrees between segments
+    const gap = sequence.length > 1 ? 2 : 0; // degrees between segments
     const usable = 360 - gap * sequence.length;
 
     let angle = 0;
@@ -1089,49 +1090,75 @@ function CycleDonut({ sequence, totalLabel }) {
         return { ...item, a0, a1, studiedSweep };
     });
 
+    const trackPointer = (e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        setHover((prev) => (prev ? { ...prev, x: e.clientX - rect.left, y: e.clientY - rect.top } : prev));
+    };
+
     return (
-        <svg viewBox={`0 0 ${size} ${size}`} className="mx-auto w-full max-w-[320px]">
-            {segments.map((s) => (
-                <g key={s.id}>
-                    {/* Outer ring — planned share per subject (solid) */}
-                    <path
-                        d={arcPath(c, c, 108, s.a0, s.a1)}
-                        stroke={s.color}
-                        strokeWidth="30"
-                        fill="none"
-                        strokeLinecap="butt"
-                    />
-                    {/* Inner track — pastel */}
-                    <path
-                        d={arcPath(c, c, 80, s.a0, s.a1)}
-                        stroke={s.color}
-                        strokeOpacity="0.2"
-                        strokeWidth="12"
-                        fill="none"
-                    />
-                    {/* Inner fill — studied portion of the segment */}
-                    {s.studiedSweep > 0 && (
+        <div
+            className="relative mx-auto w-full max-w-[320px]"
+            onMouseMove={trackPointer}
+            onMouseLeave={() => setHover(null)}
+        >
+            <svg viewBox={`0 0 ${size} ${size}`} className="w-full">
+                {segments.map((s, i) => (
+                    <g
+                        key={s.id}
+                        className="cursor-pointer"
+                        onMouseEnter={() => setHover({ item: s, x: null, y: null })}
+                    >
+                        {/* Outer ring — planned share per block (solid), each block its own segment */}
                         <path
-                            d={arcPath(c, c, 80, s.a0, s.a0 + s.studiedSweep)}
+                            d={arcPath(c, c, 108, s.a0, s.a1)}
                             stroke={s.color}
+                            strokeWidth="30"
+                            fill="none"
+                            strokeLinecap="butt"
+                            opacity={hover && hover.item !== s ? 0.45 : 1}
+                        />
+                        {/* Inner track — pastel */}
+                        <path
+                            d={arcPath(c, c, 80, s.a0, s.a1)}
+                            stroke={s.color}
+                            strokeOpacity="0.2"
                             strokeWidth="12"
                             fill="none"
                         />
-                    )}
-                </g>
-            ))}
-            <text
-                x={c}
-                y={c - 4}
-                textAnchor="middle"
-                className="fill-slate-900 text-[26px] font-bold"
-            >
-                {totalLabel}
-            </text>
-            <text x={c} y={c + 20} textAnchor="middle" className="fill-slate-400 text-[12px]">
-                por volta do ciclo
-            </text>
-        </svg>
+                        {/* Inner fill — studied portion of the segment */}
+                        {s.studiedSweep > 0 && (
+                            <path
+                                d={arcPath(c, c, 80, s.a0, s.a0 + s.studiedSweep)}
+                                stroke={s.color}
+                                strokeWidth="12"
+                                fill="none"
+                            />
+                        )}
+                    </g>
+                ))}
+                <text
+                    x={c}
+                    y={c - 4}
+                    textAnchor="middle"
+                    className="fill-slate-900 text-[26px] font-bold"
+                >
+                    {totalLabel}
+                </text>
+                <text x={c} y={c + 20} textAnchor="middle" className="fill-slate-400 text-[12px]">
+                    por volta do ciclo
+                </text>
+            </svg>
+
+            {hover && hover.x != null && (
+                <div
+                    className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-lg bg-slate-900 px-2.5 py-1.5 text-xs text-white shadow-lg"
+                    style={{ left: hover.x, top: hover.y - 10 }}
+                >
+                    <p className="font-semibold">{hover.item.subject}</p>
+                    <p className="text-slate-300">{fmt(hover.item.planned_minutes)}</p>
+                </div>
+            )}
+        </div>
     );
 }
 
@@ -2055,7 +2082,7 @@ export default function Planejamento({ cycle, nextTaskId, course_subjects: cours
                     </p>
                     <div className="flex flex-1 items-center justify-center py-6">
                         <CycleDonut
-                            sequence={cycle.by_subject}
+                            sequence={cycle.sequence}
                             totalLabel={fmt(cycle.planned_minutes)}
                         />
                     </div>
