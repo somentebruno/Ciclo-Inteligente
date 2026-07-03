@@ -309,16 +309,27 @@ function StepRitmo({ weeklyHours, setWeeklyHours, studyDays, toggleDay, minDurat
     );
 }
 
-export default function CriarPlanejamentoModal({ course, onClose }) {
+export default function CriarPlanejamentoModal({ course, mode = 'create', initial, onClose }) {
     const subjects = course?.subjects ?? [];
+    const isEdit = mode === 'edit';
 
     const [step, setStep] = useState(1);
-    const [selectedIds, setSelectedIds] = useState(new Set());
-    const [config, setConfig] = useState({}); // { [subjectId]: { importance, knowledge } }
-    const [weeklyHours, setWeeklyHours] = useState(10);
-    const [studyDays, setStudyDays] = useState(new Set(DEFAULT_STUDY_DAYS));
-    const [minDuration, setMinDuration] = useState('');
-    const [maxDuration, setMaxDuration] = useState('');
+    const [selectedIds, setSelectedIds] = useState(
+        () => new Set((initial?.subjects ?? []).map((s) => s.subject_id)),
+    );
+    const [config, setConfig] = useState(() => {
+        const c = {};
+        (initial?.subjects ?? []).forEach((s) => {
+            c[s.subject_id] = { importance: s.importance, knowledge: s.knowledge };
+        });
+        return c;
+    });
+    const [weeklyHours, setWeeklyHours] = useState(initial?.weeklyHours ?? 10);
+    const [studyDays, setStudyDays] = useState(
+        () => new Set(initial?.studyDays?.length ? initial.studyDays : DEFAULT_STUDY_DAYS),
+    );
+    const [minDuration, setMinDuration] = useState(initial?.minDuration ?? '');
+    const [maxDuration, setMaxDuration] = useState(initial?.maxDuration ?? '');
     const [saving, setSaving] = useState(false);
 
     const selectedSubjects = useMemo(
@@ -361,25 +372,31 @@ export default function CriarPlanejamentoModal({ course, onClose }) {
 
     const submit = () => {
         setSaving(true);
-        router.post(
-            '/onboarding',
-            {
-                course_id: course.id,
-                weekly_hours: Number(weeklyHours) || 1,
-                study_days: Array.from(studyDays),
-                min_session_minutes: minDuration || null,
-                max_session_minutes: maxDuration || null,
-                subjects: selectedSubjects.map((s) => ({
-                    subject_id: s.id,
-                    importance: config[s.id]?.importance ?? 3,
-                    knowledge: config[s.id]?.knowledge ?? 3,
-                })),
-                studied_topics: [],
-            },
-            {
+        const settings = {
+            weekly_hours: Number(weeklyHours) || 1,
+            study_days: Array.from(studyDays),
+            min_session_minutes: minDuration || null,
+            max_session_minutes: maxDuration || null,
+            subjects: selectedSubjects.map((s) => ({
+                subject_id: s.id,
+                importance: config[s.id]?.importance ?? 3,
+                knowledge: config[s.id]?.knowledge ?? 3,
+            })),
+        };
+
+        if (isEdit) {
+            router.post('/planejamento/replanejar', settings, {
+                preserveScroll: true,
+                onSuccess: onClose,
                 onFinish: () => setSaving(false),
-            },
-        );
+            });
+        } else {
+            router.post(
+                '/onboarding',
+                { course_id: course.id, ...settings, studied_topics: [] },
+                { onFinish: () => setSaving(false) },
+            );
+        }
     };
 
     return (
@@ -388,7 +405,7 @@ export default function CriarPlanejamentoModal({ course, onClose }) {
 
             <div className="relative z-10 flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
                 <div className="px-6 pt-6">
-                    <Header title="Criar Planejamento" onClose={onClose} />
+                    <Header title={isEdit ? 'Replanejar Ciclo' : 'Criar Planejamento'} onClose={onClose} />
                 </div>
 
                 <div className="flex-1 overflow-y-auto">
@@ -415,7 +432,13 @@ export default function CriarPlanejamentoModal({ course, onClose }) {
                 <Footer
                     onBack={step > 1 ? back : null}
                     onNext={step < 3 ? next : submit}
-                    nextLabel={step < 3 ? 'Avançar' : saving ? 'Concluindo…' : 'Concluir'}
+                    nextLabel={
+                        step < 3
+                            ? 'Avançar'
+                            : saving
+                              ? (isEdit ? 'Replanejando…' : 'Concluindo…')
+                              : (isEdit ? 'Replanejar' : 'Concluir')
+                    }
                     nextDisabled={(step === 1 && selectedIds.size === 0) || saving}
                 />
             </div>

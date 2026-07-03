@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import AppLayout from '@/Layouts/AppLayout';
+import CriarPlanejamentoModal from '@/Components/CriarPlanejamentoModal';
 import { Link, router } from '@inertiajs/react';
 
 /** Minutes → "10h57min" / "12h" / "45min". */
@@ -1885,6 +1886,7 @@ function StudyLogModal({ item, subjects, onClose }) {
 export default function Planejamento({ cycle, nextTaskId, course_subjects: courseSubjects = [] }) {
     const [editMode, setEditMode] = useState(false);
     const [confirmAction, setConfirmAction] = useState(null);
+    const [replanning, setReplanning] = useState(false);
 
     // Ordem local (drag-and-drop) da sequência enquanto em modo edição —
     // ressincroniza com o servidor a cada resposta (edições de disciplina,
@@ -1962,14 +1964,6 @@ export default function Planejamento({ cycle, nextTaskId, course_subjects: cours
             onConfirm: () => router.post('/planejamento/recomecar', {}, { preserveScroll: true }),
         });
 
-    const replan = () =>
-        setConfirmAction({
-            title: 'Replanejar o ciclo de estudos?',
-            message: 'A sequência de blocos é refeita a partir dos pesos configurados (importância/conhecimento). Ajustes manuais feitos em "Editar Ciclo" — ordem, disciplinas trocadas, blocos duplicados ou removidos — são perdidos.',
-            confirmLabel: 'Replanejar',
-            onConfirm: () => router.post('/planejamento/replanejar', {}, { preserveScroll: true }),
-        });
-
     const remove = () =>
         setConfirmAction({
             title: 'Remover este plano?',
@@ -2003,7 +1997,7 @@ export default function Planejamento({ cycle, nextTaskId, course_subjects: cours
                 </button>
                 <button
                     type="button"
-                    onClick={replan}
+                    onClick={() => setReplanning(true)}
                     className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
                 >
                     Replanejar
@@ -2177,7 +2171,23 @@ export default function Planejamento({ cycle, nextTaskId, course_subjects: cours
             </Link>
             )}
 
-            {/* Confirmação — Recomeçar Ciclo / Replanejar / Remover plano */}
+            {/* Modal — Replanejar (mesmo fluxo de 3 telas de Criar Planejamento, pré-preenchido) */}
+            {replanning && (
+                <CriarPlanejamentoModal
+                    course={{ subjects: courseSubjects }}
+                    mode="edit"
+                    initial={{
+                        subjects: cycle.configured_subjects,
+                        weeklyHours: cycle.weekly_hours,
+                        studyDays: cycle.study_days,
+                        minDuration: cycle.min_session_minutes,
+                        maxDuration: cycle.max_session_minutes,
+                    }}
+                    onClose={() => setReplanning(false)}
+                />
+            )}
+
+            {/* Confirmação — Recomeçar Ciclo / Remover plano */}
             {confirmAction && (
                 <ConfirmDialog
                     {...confirmAction}

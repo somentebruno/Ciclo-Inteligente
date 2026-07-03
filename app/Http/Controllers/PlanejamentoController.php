@@ -41,6 +41,8 @@ class PlanejamentoController extends Controller
             ])
             ->get();
 
+        $plan->loadMissing('configuredSubjects');
+
         // Minutes studied per subject in the current lap, fed by the study
         // sessions logged through the completion modal (linked via topic) and
         // manual entries logged straight from this page (linked via the cycle
@@ -190,6 +192,17 @@ class PlanejamentoController extends Controller
                 'pct' => $planned > 0 ? round($studied / $planned * 100, 2) : 0,
                 'sequence' => $sequence,
                 'by_subject' => $bySubject,
+                // Configuração atual do ciclo — alimenta o pré-preenchimento
+                // do modal de "Replanejar".
+                'weekly_hours' => $plan->weekly_hours,
+                'study_days' => $plan->study_days ?? [],
+                'min_session_minutes' => $plan->min_session_minutes,
+                'max_session_minutes' => $plan->max_session_minutes,
+                'configured_subjects' => $plan->configuredSubjects->map(fn ($s) => [
+                    'subject_id' => $s->id,
+                    'importance' => $s->pivot->importance,
+                    'knowledge' => $s->pivot->knowledge,
+                ])->values(),
             ],
             'nextTaskId' => $nextTask?->id,
             // Disciplinas do curso do plano — alimenta o seletor de troca de
@@ -218,26 +231,58 @@ class PlanejamentoController extends Controller
     }
 
     /**
-     * Rebuild the pending task queue from today (keeps completed history).
+     * "Replanejar" — same 3-step config as criar planejamento (Disciplinas /
+     * Importância-Conhecimento / Horas-Dias-Duração), pre-filled with the
+     * plan's current settings. Updates the cycle's settings + per-subject
+     * weights and rebuilds the block rotation from scratch — discards any
+     * manual tweaks made via "Editar Ciclo" (order, duplicated/removed
+     * blocks, swapped subjects).
      */
     public function replan(Request $request): RedirectResponse
     {
         $plan = $this->activePlan($request);
         abort_unless($plan, 404);
 
-        // Rebuild the block rotation from the configured weights (same
-        // importance/knowledge the plan was created with) — discards any
-        // manual tweaks made via "Editar Ciclo" (order, duplicated/removed
-        // blocks, swapped subjects).
-        $plan->loadMissing('configuredSubjects');
-        $subjects = $plan->configuredSubjects->map(fn ($s) => [
-            'subject_id' => $s->id,
-            'importance' => $s->pivot->importance,
-            'knowledge' => $s->pivot->knowledge,
-            'format' => $s->pivot->format,
-        ])->all();
+        $data = $request->validate([
+            'weekly_hours' => ['required', 'integer', 'min:1', 'max:168'],
+            'study_days' => ['array'],
+            'study_days.*' => ['integer', 'between:0,6'],
+            'min_session_minutes' => ['nullable', 'integer', 'min:1'],
+            'max_session_minutes' => ['nullable', 'integer', 'min:1'],
+            'subjects' => ['required', 'array', 'min:1'],
+            'subjects.*.subject_id' => ['required', 'integer', 'exists:subjects,id'],
+            'subjects.*.importance' => ['required', 'integer', 'between:1,5'],
+            'subjects.*.knowledge' => ['required', 'integer', 'between:1,5'],
+        ]);
 
-        app(CycleGeneratorService::class)->generate($plan, $subjects);
+        $sessionMinutes = CycleGeneratorService::sessionMinutes(
+            $data['min_session_minutes'] ?? null,
+            $data['max_session_minutes'] ?? null,
+        );
+        $weeklyTasks = max(1, (int) round($data['weekly_hours'] * 60 / $sessionMinutes));
+        $studyDaysCount = count($data['study_days'] ?? []) ?: 7;
+        $dailyTasks = max(1, (int) ceil($weeklyTasks / $studyDaysCount));
+
+        $plan->update([
+            'weekly_hours' => $data['weekly_hours'],
+            'weekly_tasks' => $weeklyTasks,
+            'daily_tasks' => $dailyTasks,
+            'study_days' => $data['study_days'] ?? [],
+            'min_session_minutes' => $data['min_session_minutes'] ?? null,
+            'max_session_minutes' => $data['max_session_minutes'] ?? null,
+        ]);
+
+        $subjectPivot = collect($data['subjects'])
+            ->mapWithKeys(fn (array $s) => [
+                $s['subject_id'] => [
+                    'importance' => $s['importance'],
+                    'knowledge' => $s['knowledge'],
+                    'format' => 'pdf',
+                ],
+            ])->all();
+        $plan->configuredSubjects()->sync($subjectPivot);
+
+        app(CycleGeneratorService::class)->generate($plan, $data['subjects']);
 
         return back()->with('success', 'Ciclo de estudos replanejado.');
     }
