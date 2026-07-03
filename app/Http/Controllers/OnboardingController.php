@@ -75,15 +75,24 @@ class OnboardingController extends Controller
     {
         $data = $request->validate([
             'course_id' => ['required', 'integer', 'exists:courses,id'],
-            'weekly_tasks' => ['required', 'integer', 'min:1', 'max:100'],
-            'daily_tasks' => ['nullable', 'integer', 'min:1', 'max:20'],
+            'weekly_hours' => ['required', 'integer', 'min:1', 'max:168'],
+            'study_days' => ['array'],
+            'study_days.*' => ['integer', 'between:0,6'],
+            'min_session_minutes' => ['nullable', 'integer', 'min:1'],
+            'max_session_minutes' => ['nullable', 'integer', 'min:1'],
             'subjects' => ['required', 'array', 'min:1'],
             'subjects.*.subject_id' => ['required', 'integer', 'exists:subjects,id'],
-            'subjects.*.difficulty' => ['required', Rule::in(['facil', 'medio', 'dificil'])],
-            'subjects.*.format' => ['required', Rule::in(['pdf', 'video'])],
+            'subjects.*.importance' => ['required', 'integer', 'between:1,5'],
+            'subjects.*.knowledge' => ['required', 'integer', 'between:1,5'],
             'studied_topics' => ['array'],
             'studied_topics.*' => ['integer', Rule::exists('topics', 'id')->where(fn ($q) => $q->whereDoesntHave('subtopics'))],
         ]);
+
+        // Tela 3 do modal só pergunta horas/semana — deriva a contagem de
+        // tarefas (1 tarefa ≈ 90min) e quantas por dia dado os dias escolhidos.
+        $weeklyTasks = max(1, (int) round($data['weekly_hours'] * 60 / CycleGeneratorService::MINUTES_PER_TASK));
+        $studyDaysCount = count($data['study_days'] ?? []) ?: 7;
+        $dailyTasks = max(1, (int) ceil($weeklyTasks / $studyDaysCount));
 
         $user = $this->currentUser($request);
         $course = Course::with('cargos:id,course_id,name,code')->findOrFail($data['course_id']);
@@ -102,30 +111,37 @@ class OnboardingController extends Controller
             ? $cargo->name.($cargo->code ? " ({$cargo->code})" : '')
             : $course->name;
 
-        DB::transaction(function () use ($data, $user, $course, $planLabel) {
+        DB::transaction(function () use ($data, $user, $course, $planLabel, $weeklyTasks, $dailyTasks) {
             $cycle = StudyCycle::create([
                 'user_id' => $user->id,
                 'course_id' => $course->id,
                 'name' => 'Plano — '.$planLabel,
-                'weekly_tasks' => $data['weekly_tasks'],
-                'daily_tasks' => $data['daily_tasks'] ?? null,
-                'weekly_hours' => (int) round($data['weekly_tasks'] * (CycleGeneratorService::MINUTES_PER_TASK / 60)),
+                'weekly_tasks' => $weeklyTasks,
+                'daily_tasks' => $dailyTasks,
+                'weekly_hours' => $data['weekly_hours'],
+                'study_days' => $data['study_days'] ?? [],
+                'min_session_minutes' => $data['min_session_minutes'] ?? null,
+                'max_session_minutes' => $data['max_session_minutes'] ?? null,
                 'status' => 'active',
                 'generated_at' => now(),
                 'onboarding_completed_at' => now(),
             ]);
 
-            // Steps 3-5: per-subject difficulty & format.
+            // Tela do modal: importância/conhecimento por disciplina (formato
+            // sempre 'pdf' por enquanto — a etapa de escolher formato saiu do
+            // fluxo de criação).
             $subjectPivot = collect($data['subjects'])
                 ->mapWithKeys(fn (array $s) => [
                     $s['subject_id'] => [
-                        'difficulty' => $s['difficulty'],
-                        'format' => $s['format'],
+                        'importance' => $s['importance'],
+                        'knowledge' => $s['knowledge'],
+                        'format' => 'pdf',
                     ],
                 ])->all();
             $cycle->configuredSubjects()->sync($subjectPivot);
 
-            // Step 6: already-studied topics.
+            // Já estudei: coberto pela página Edital Verticalizado; nenhum
+            // tópico é pré-marcado na criação do plano.
             $studiedPivot = collect($data['studied_topics'] ?? [])
                 ->mapWithKeys(fn (int $topicId) => [$topicId => ['already_studied' => true]])
                 ->all();
@@ -137,7 +153,7 @@ class OnboardingController extends Controller
         });
 
         return redirect()
-            ->route('plano-semanal')
+            ->route('planejamento')
             ->with('success', 'Seu plano de estudos foi montado com sucesso!');
     }
 }

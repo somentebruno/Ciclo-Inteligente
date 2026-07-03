@@ -22,6 +22,9 @@ class StudyCycle extends Model
         'course_id',
         'name',
         'weekly_hours',
+        'study_days',
+        'min_session_minutes',
+        'max_session_minutes',
         'daily_tasks',
         'weekly_tasks',
         'completed_laps',
@@ -35,6 +38,9 @@ class StudyCycle extends Model
     {
         return [
             'weekly_hours' => 'integer',
+            'study_days' => 'array',
+            'min_session_minutes' => 'integer',
+            'max_session_minutes' => 'integer',
             'daily_tasks' => 'integer',
             'weekly_tasks' => 'integer',
             'completed_laps' => 'integer',
@@ -94,7 +100,7 @@ class StudyCycle extends Model
     public function configuredSubjects(): BelongsToMany
     {
         return $this->belongsToMany(Subject::class, 'cycle_subject')
-            ->withPivot(['difficulty', 'format'])
+            ->withPivot(['importance', 'knowledge', 'format'])
             ->withTimestamps();
     }
 

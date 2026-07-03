@@ -28,7 +28,10 @@ class PlanController extends Controller
     {
         $courses = Course::query()
             ->withCount(['subjects', 'topics'])
-            ->with('cargos:id,course_id,name,code')
+            ->with([
+                'cargos:id,course_id,name,code',
+                'subjects:id,course_id,name,color',
+            ])
             ->orderBy('name')
             ->get();
 
@@ -44,6 +47,11 @@ class PlanController extends Controller
                     'code' => $cargo->code,
                     'subjects_count' => $course->subjects_count,
                     'topics_count' => $course->topics_count,
+                    'subjects' => $course->subjects->map(fn ($s) => [
+                        'id' => $s->id,
+                        'name' => $s->name,
+                        'color' => $s->color,
+                    ])->values(),
                 ]))->values(),
             ])
             ->values();

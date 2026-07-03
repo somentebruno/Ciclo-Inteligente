@@ -16,12 +16,6 @@ class TaskSchedulerService
 {
     private const HORIZON_DAYS = 7;
 
-    private const DIFFICULTY_WEIGHT = [
-        'facil' => 1,
-        'medio' => 2,
-        'dificil' => 3,
-    ];
-
     public function schedule(StudyCycle $cycle): void
     {
         $cycle->loadMissing(['configuredSubjects.topics' => fn ($q) => $q->studyable(), 'studiedTopics']);
@@ -36,10 +30,11 @@ class TaskSchedulerService
         $perDay = $cycle->daily_tasks ?: max(1, (int) ceil(($cycle->weekly_tasks ?: 7) / 7));
         $maxTheory = $perDay * self::HORIZON_DAYS;
         $today = Carbon::today();
+        $dates = $this->nextStudyDates($today, $cycle->study_days, self::HORIZON_DAYS);
 
-        // Hardest subjects first.
+        // Heaviest subjects first.
         $subjects = $cycle->configuredSubjects
-            ->sortByDesc(fn ($s) => self::DIFFICULTY_WEIGHT[$s->pivot->difficulty] ?? 2)
+            ->sortByDesc(fn ($s) => CycleGeneratorService::weight($s->pivot->importance, $s->pivot->knowledge))
             ->values();
 
         // Per-subject queues of not-yet-studied topics, in order.
@@ -75,7 +70,7 @@ class TaskSchedulerService
                 // Real aula duration when known (e.g. imported from the prep
                 // course platform); falls back to the generic block estimate.
                 'planned_minutes' => $item['topic']->estimated_minutes ?: CycleGeneratorService::MINUTES_PER_TASK,
-                'scheduled_for' => $today->copy()->addDays(intdiv($index, $perDay)),
+                'scheduled_for' => $dates[intdiv($index, $perDay) % count($dates)],
                 'position' => $index,
                 'status' => 'pending',
             ]);
@@ -94,10 +89,34 @@ class TaskSchedulerService
                 'type' => StudyTask::TYPE_REVIEW,
                 'format' => $subject?->pivot->format ?? 'pdf',
                 'planned_minutes' => 45,
-                'scheduled_for' => $today->copy()->addDays($i % self::HORIZON_DAYS),
+                'scheduled_for' => $dates[$i % count($dates)],
                 'position' => $i,
                 'status' => 'pending',
             ]);
         }
+    }
+
+    /**
+     * The next $count calendar dates (starting today) whose weekday is in
+     * $studyDays (0=Sunday..6=Saturday, matching Carbon::dayOfWeek). Falls
+     * back to every day when $studyDays is empty/null.
+     *
+     * @param  array<int>|null  $studyDays
+     * @return array<int, Carbon>
+     */
+    private function nextStudyDates(Carbon $start, ?array $studyDays, int $count): array
+    {
+        $allowed = ! empty($studyDays) ? array_map('intval', $studyDays) : range(0, 6);
+        $dates = [];
+        $cursor = $start->copy();
+
+        while (count($dates) < $count) {
+            if (in_array((int) $cursor->dayOfWeek, $allowed, true)) {
+                $dates[] = $cursor->copy();
+            }
+            $cursor->addDay();
+        }
+
+        return $dates;
     }
 }

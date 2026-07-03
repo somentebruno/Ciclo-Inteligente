@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, router, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
+import CriarPlanejamentoModal from '@/Components/CriarPlanejamentoModal';
 
 /* --- Seus planos: ativar / apagar cada plano ---------------------------- */
 function MyPlans({ plans }) {
@@ -137,7 +138,7 @@ function PlanCard({ plan, plannedCourseIds, selectedId, onSelect }) {
     );
 }
 
-function CargoDetail({ selected, existingPlan }) {
+function CargoDetail({ selected, existingPlan, onCreatePlan }) {
     const [confirming, setConfirming] = useState(false);
     const [busy, setBusy] = useState(false);
 
@@ -222,12 +223,13 @@ function CargoDetail({ selected, existingPlan }) {
                     )}
                 </div>
             ) : (
-                <Link
-                    href={`/onboarding?course=${cargo.course_id}`}
+                <button
+                    type="button"
+                    onClick={() => onCreatePlan(cargo)}
                     className="mt-5 block w-full rounded-lg bg-brand-600 px-4 py-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700"
                 >
                     Avançar para criar o plano →
-                </Link>
+                </button>
             )}
         </div>
     );
@@ -235,6 +237,7 @@ function CargoDetail({ selected, existingPlan }) {
 
 export default function PlanosIndex({ catalog = [], myPlans = [] }) {
     const [selected, setSelected] = useState(null);
+    const [creatingCargo, setCreatingCargo] = useState(null);
     const plannedCourseIds = myPlans.map((p) => p.course_id);
     const selectedPlan = selected
         ? myPlans.find((p) => p.course_id === selected.cargo.course_id) ?? null
@@ -282,9 +285,24 @@ export default function PlanosIndex({ catalog = [], myPlans = [] }) {
                     </div>
 
                     <div className="lg:sticky lg:top-20 lg:self-start">
-                        <CargoDetail selected={selected} existingPlan={selectedPlan} />
+                        <CargoDetail
+                            selected={selected}
+                            existingPlan={selectedPlan}
+                            onCreatePlan={setCreatingCargo}
+                        />
                     </div>
                 </div>
+            )}
+
+            {creatingCargo && (
+                <CriarPlanejamentoModal
+                    course={{
+                        id: creatingCargo.course_id,
+                        name: creatingCargo.name,
+                        subjects: creatingCargo.subjects ?? [],
+                    }}
+                    onClose={() => setCreatingCargo(null)}
+                />
             )}
         </div>
     );

@@ -15,17 +15,19 @@ class CycleGeneratorService
     /** How much study time a single task represents, in minutes (1 tarefa ≈ 1h30). */
     public const MINUTES_PER_TASK = 90;
 
-    /** Relative weight of each perceived difficulty. */
-    private const DIFFICULTY_WEIGHT = [
-        'facil' => 1,
-        'medio' => 2,
-        'dificil' => 3,
-    ];
+    /**
+     * Weight of a subject given the student's self-rated importance (1-5) and
+     * knowledge (1-5): more important + less known = more study time.
+     */
+    public static function weight(int $importance, int $knowledge): int
+    {
+        return $importance * (6 - $knowledge);
+    }
 
     /**
      * Generate (or regenerate) the cycle items for a given cycle.
      *
-     * @param  array<int, array{subject_id:int, difficulty:string, format:string}>  $subjects
+     * @param  array<int, array{subject_id:int, importance:int, knowledge:int, format:string}>  $subjects
      */
     public function generate(StudyCycle $cycle, array $subjects): void
     {
@@ -39,18 +41,18 @@ class CycleGeneratorService
         $weeklyTasks = max(1, (int) ($cycle->weekly_tasks ?? 7));
 
         $totalWeight = array_sum(array_map(
-            fn (array $s) => self::DIFFICULTY_WEIGHT[$s['difficulty']] ?? 2,
+            fn (array $s) => self::weight($s['importance'], $s['knowledge']),
             $subjects
         ));
 
-        // Harder subjects first, so the rotation front-loads the heavy topics.
-        usort($subjects, fn (array $a, array $b) => (self::DIFFICULTY_WEIGHT[$b['difficulty']] ?? 2)
-            <=> (self::DIFFICULTY_WEIGHT[$a['difficulty']] ?? 2));
+        // Heavier subjects first, so the rotation front-loads them.
+        usort($subjects, fn (array $a, array $b) => self::weight($b['importance'], $b['knowledge'])
+            <=> self::weight($a['importance'], $a['knowledge']));
 
         $position = 1;
 
         foreach ($subjects as $subject) {
-            $weight = self::DIFFICULTY_WEIGHT[$subject['difficulty']] ?? 2;
+            $weight = self::weight($subject['importance'], $subject['knowledge']);
 
             // Distribute the weekly tasks proportionally to the difficulty weight,
             // guaranteeing at least one task per subject.
