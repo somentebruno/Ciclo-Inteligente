@@ -62,21 +62,38 @@ function TopicRow({ topic }) {
 }
 
 function TopicNode({ topic }) {
+    const [open, setOpen] = useState(true);
+
     if (topic.subtopics.length === 0) {
         return <TopicRow topic={topic} />;
     }
 
     return (
         <li>
-            <p className="flex items-center gap-1.5 px-2 py-2 text-sm font-semibold text-slate-800">
-                <span className="tabular-nums text-slate-400">{topic.number}.</span>
-                {topic.name}
-            </p>
-            <ul className="ml-6 space-y-0.5 border-l border-slate-100 pl-3">
-                {topic.subtopics.map((st) => (
-                    <TopicRow key={st.id} topic={st} />
-                ))}
-            </ul>
+            <button
+                type="button"
+                onClick={() => setOpen((v) => !v)}
+                className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left transition hover:bg-slate-50"
+            >
+                <ChevronDownIcon
+                    className={
+                        'h-5 w-5 shrink-0 text-slate-400 transition-transform ' + (open ? '' : '-rotate-90')
+                    }
+                />
+
+                <span className="flex-1 text-sm font-semibold text-slate-800">
+                    <span className="mr-1.5 tabular-nums text-slate-400">{topic.number}.</span>
+                    {topic.name}
+                </span>
+            </button>
+
+            {open && (
+                <ul className="ml-6 space-y-0.5 border-l border-slate-100 pl-3">
+                    {topic.subtopics.map((st) => (
+                        <TopicRow key={st.id} topic={st} />
+                    ))}
+                </ul>
+            )}
         </li>
     );
 }
