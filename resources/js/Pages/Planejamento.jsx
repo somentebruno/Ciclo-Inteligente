@@ -1964,8 +1964,8 @@ export default function Planejamento({ cycle, nextTaskId, course_subjects: cours
 
     const replan = () =>
         setConfirmAction({
-            title: 'Replanejar a fila de tarefas?',
-            message: 'As tarefas pendentes a partir de hoje serão reagendadas (o histórico concluído é mantido).',
+            title: 'Replanejar o ciclo de estudos?',
+            message: 'A sequência de blocos é refeita a partir dos pesos configurados (importância/conhecimento). Ajustes manuais feitos em "Editar Ciclo" — ordem, disciplinas trocadas, blocos duplicados ou removidos — são perdidos.',
             confirmLabel: 'Replanejar',
             onConfirm: () => router.post('/planejamento/replanejar', {}, { preserveScroll: true }),
         });

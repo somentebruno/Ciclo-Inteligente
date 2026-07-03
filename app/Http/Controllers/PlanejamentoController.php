@@ -7,7 +7,7 @@ use App\Models\StudyCycleItem;
 use App\Models\StudySession;
 use App\Models\StudyTask;
 use App\Models\Topic;
-use App\Services\TaskSchedulerService;
+use App\Services\CycleGeneratorService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -225,9 +225,21 @@ class PlanejamentoController extends Controller
         $plan = $this->activePlan($request);
         abort_unless($plan, 404);
 
-        app(TaskSchedulerService::class)->schedule($plan);
+        // Rebuild the block rotation from the configured weights (same
+        // importance/knowledge the plan was created with) — discards any
+        // manual tweaks made via "Editar Ciclo" (order, duplicated/removed
+        // blocks, swapped subjects).
+        $plan->loadMissing('configuredSubjects');
+        $subjects = $plan->configuredSubjects->map(fn ($s) => [
+            'subject_id' => $s->id,
+            'importance' => $s->pivot->importance,
+            'knowledge' => $s->pivot->knowledge,
+            'format' => $s->pivot->format,
+        ])->all();
 
-        return back()->with('success', 'Fila de tarefas replanejada a partir de hoje.');
+        app(CycleGeneratorService::class)->generate($plan, $subjects);
+
+        return back()->with('success', 'Ciclo de estudos replanejado.');
     }
 
     /**
