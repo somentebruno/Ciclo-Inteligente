@@ -83,11 +83,35 @@ class CycleGeneratorService
         $sessionMinutes = self::sessionMinutes($cycle->min_session_minutes, $cycle->max_session_minutes);
 
         // How many blocks each subject gets this lap, proportional to its
-        // weight — guaranteeing at least one block per subject.
-        $queues = array_map(fn (array $s) => [
+        // weight. Every subject gets a baseline of one block; any blocks
+        // beyond that baseline are apportioned by the largest-remainder
+        // method (Hamilton) so the total always equals $weeklyTasks exactly
+        // instead of drifting from independent per-subject round()ing.
+        $subjectCount = count($subjects);
+        $effectiveTotal = max($weeklyTasks, $subjectCount);
+        $extra = $effectiveTotal - $subjectCount;
+
+        $shares = array_map(function (array $s) use ($totalWeight, $extra) {
+            $exact = $extra > 0 ? self::weight($s['importance'], $s['knowledge']) / $totalWeight * $extra : 0.0;
+
+            return ['base' => (int) floor($exact), 'remainder' => $exact - floor($exact)];
+        }, $subjects);
+
+        $leftover = $extra - array_sum(array_column($shares, 'base'));
+
+        // Hand the leftover blocks to the largest fractional remainders
+        // (ties broken by weight, since $subjects is already sorted
+        // heaviest-first above).
+        $order = array_keys($shares);
+        usort($order, fn ($a, $b) => $shares[$b]['remainder'] <=> $shares[$a]['remainder']);
+        foreach (array_slice($order, 0, $leftover) as $i) {
+            $shares[$i]['base']++;
+        }
+
+        $queues = array_map(fn (array $s, array $share) => [
             'subject_id' => $s['subject_id'],
-            'remaining' => max(1, (int) round(self::weight($s['importance'], $s['knowledge']) / $totalWeight * $weeklyTasks)),
-        ], $subjects);
+            'remaining' => 1 + $share['base'],
+        ], $subjects, $shares);
 
         // Round-robin: one block per subject per pass, repeating until every
         // subject's quota for this lap is used up — the actual small,
