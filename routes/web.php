@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DesempenhoController;
+use App\Http\Controllers\DisciplinasController;
 use App\Http\Controllers\EditalVerticalizadoController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OnboardingController;
@@ -58,6 +59,8 @@ Route::middleware('auth')->group(function () {
     Route::delete('/planos/{cycle}', [PlanController::class, 'destroy'])->name('planos.destroy');
 
     Route::get('/desempenho', [DesempenhoController::class, 'index'])->name('desempenho');
+
+    Route::get('/disciplinas', [DisciplinasController::class, 'index'])->name('disciplinas');
 
     Route::get('/edital-verticalizado', [EditalVerticalizadoController::class, 'index'])->name('edital-verticalizado');
     Route::post('/edital-verticalizado/topicos/{topic}/alternar', [EditalVerticalizadoController::class, 'toggleTopic'])->name('edital-verticalizado.topicos.alternar');
