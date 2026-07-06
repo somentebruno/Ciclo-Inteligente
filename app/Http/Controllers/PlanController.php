@@ -27,6 +27,7 @@ class PlanController extends Controller
     public function index(Request $request): Response
     {
         $courses = Course::query()
+            ->catalog()
             ->withCount(['subjects', 'topics'])
             ->with([
                 'cargos:id,course_id,name,code',
@@ -105,6 +106,11 @@ class PlanController extends Controller
      * Delete one of the student's plans (study cycle). Cascades to its items,
      * tasks and pivots; study sessions are preserved (FK set to null). This is
      * what frees the cargo so a new plan can be created for it.
+     *
+     * When the plan was built on a private "plano personalizado" course (never
+     * shared with anyone else), delete that Course instead — it cascades down
+     * to the cycle anyway, and also cleans up the ad-hoc subjects/topics
+     * instead of leaving them orphaned.
      */
     public function destroy(Request $request, StudyCycle $cycle): RedirectResponse
     {
@@ -112,7 +118,13 @@ class PlanController extends Controller
 
         abort_unless($cycle->user_id === $user->id, 403);
 
-        $cycle->delete();
+        $cycle->loadMissing('course');
+
+        if ($cycle->course && $cycle->course->user_id === $user->id) {
+            $cycle->course->delete();
+        } else {
+            $cycle->delete();
+        }
 
         return back()->with('success', 'Plano apagado.');
     }

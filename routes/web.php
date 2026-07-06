@@ -31,6 +31,7 @@ Route::middleware('auth')->group(function () {
     // Onboarding — montagem do plano (6 etapas)
     Route::get('/onboarding', [OnboardingController::class, 'index'])->name('onboarding');
     Route::post('/onboarding', [OnboardingController::class, 'store'])->name('onboarding.store');
+    Route::post('/onboarding/custom', [OnboardingController::class, 'storeCustom'])->name('onboarding.custom');
 
     // Navegação principal (Sidebar)
     Route::get('/metas-do-dia', [PlannerController::class, 'metas'])->name('metas');

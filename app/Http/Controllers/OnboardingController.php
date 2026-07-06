@@ -5,11 +5,14 @@ namespace App\Http\Controllers;
 use App\Concerns\ResolvesCurrentUser;
 use App\Models\Course;
 use App\Models\StudyCycle;
+use App\Models\Subject;
+use App\Models\Topic;
 use App\Services\CycleGeneratorService;
 use App\Services\TaskSchedulerService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -19,53 +22,198 @@ class OnboardingController extends Controller
     use ResolvesCurrentUser;
 
     /**
+     * Pastel palette for auto-assigning subject colors in a "plano
+     * personalizado" — same values as the swatch picker in
+     * resources/js/Components/CriarPlanejamentoModal.jsx, so custom subjects
+     * look consistent with the rest of the UI.
+     */
+    private const PASTEL_COLORS = [
+        '#fecaca', '#fed7aa', '#fef08a', '#d9f99d', '#bbf7d0',
+        '#a7f3d0', '#99f6e4', '#a5f3fc', '#bae6fd', '#bfdbfe',
+        '#c7d2fe', '#ddd6fe', '#e9d5ff', '#f5d0fe', '#fbcfe8',
+    ];
+
+    /**
+     * Shape a Course (with subjects/topics eager-loaded) into the wizard's
+     * per-course payload — shared by the catalog listing and the "plano
+     * personalizado" builder so both produce an identical shape.
+     */
+    private function presentCourse(Course $course): array
+    {
+        // Prefer the cargo name as the plan label (e.g. "Agente
+        // Censitário de Qualidade (ACQ)") over the internal course name.
+        // Custom courses have no cargo, so this falls back to the name the
+        // student typed in.
+        $cargo = $course->cargos->first();
+        $label = $cargo
+            ? $cargo->name.($cargo->code ? " ({$cargo->code})" : '')
+            : $course->name;
+
+        return [
+            'id' => $course->id,
+            'label' => $label,
+            'orgao' => $course->orgao,
+            'name' => $course->name,
+            'subjects' => $course->subjects->map(fn ($subject) => [
+                'id' => $subject->id,
+                'name' => $subject->name,
+                'color' => $subject->color,
+                'topics' => $subject->topics
+                    ->map(fn ($topic) => ['id' => $topic->id, 'name' => $topic->name])
+                    ->values(),
+            ])->values(),
+        ];
+    }
+
+    /**
      * Render the 6-step onboarding wizard with the available courses and their
      * subjects/topics (needed by steps 3-6).
      */
     public function index(Request $request): Response
     {
-        $courses = Course::query()
-            ->where('is_active', true)
-            ->with([
-                'cargos:id,course_id,name,code',
-                'subjects' => fn ($q) => $q->orderBy('name'),
-                'subjects.topics' => fn ($q) => $q->studyable()->orderBy('order'),
-            ])
-            ->orderBy('name')
-            ->get()
-            ->map(function (Course $course) {
-                // Prefer the cargo name as the plan label (e.g. "Agente
-                // Censitário de Qualidade (ACQ)") over the internal course name.
-                $cargo = $course->cargos->first();
-                $label = $cargo
-                    ? $cargo->name.($cargo->code ? " ({$cargo->code})" : '')
-                    : $course->name;
-
-                return [
-                    'id' => $course->id,
-                    'label' => $label,
-                    'orgao' => $course->orgao,
-                    'name' => $course->name,
-                    'subjects' => $course->subjects->map(fn ($subject) => [
-                        'id' => $subject->id,
-                        'name' => $subject->name,
-                        'color' => $subject->color,
-                        'topics' => $subject->topics
-                            ->map(fn ($topic) => ['id' => $topic->id, 'name' => $topic->name])
-                            ->values(),
-                    ])->values(),
-                ];
-            });
+        $with = [
+            'cargos:id,course_id,name,code',
+            'subjects' => fn ($q) => $q->orderBy('name'),
+            'subjects.topics' => fn ($q) => $q->studyable()->orderBy('order'),
+        ];
 
         $user = $this->currentUser($request);
 
+        $courses = Course::query()
+            ->catalog()
+            ->where('is_active', true)
+            ->with($with)
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Course $course) => $this->presentCourse($course));
+
+        // A "plano personalizado" just built by this student isn't part of the
+        // shared catalog above (it's private), but the redirect back here after
+        // creating it passes ?course= so it still shows up pre-selected.
+        $preselectedCourseId = $request->integer('course') ?: null;
+        if ($preselectedCourseId && ! $courses->contains('id', $preselectedCourseId)) {
+            $customCourse = Course::query()
+                ->where('id', $preselectedCourseId)
+                ->where('user_id', $user->id)
+                ->with($with)
+                ->first();
+
+            if ($customCourse) {
+                $courses->prepend($this->presentCourse($customCourse));
+            } else {
+                $preselectedCourseId = null;
+            }
+        }
+
         return Inertia::render('Onboarding/Wizard', [
-            'courses' => $courses,
-            'preselectedCourseId' => $request->integer('course') ?: null,
+            'courses' => $courses->values(),
+            'preselectedCourseId' => $preselectedCourseId,
             // Courses the student already has a plan for — one plan per cargo, so
             // these can't be picked again until the existing plan is deleted.
             'plannedCourseIds' => $user->studyCycles()->pluck('course_id')->all(),
+            // "Criar plano personalizado" (Planos/Novo.jsx) links here with
+            // ?personalizado=1 so Step 1 opens straight into the custom builder.
+            'startPersonalizado' => $request->boolean('personalizado'),
         ]);
+    }
+
+    /**
+     * "Plano personalizado" — build a private Course/Subject/Topic tree from
+     * scratch (no catalog edital involved) and hand it back to Step 1 of the
+     * wizard as if it had just been picked from the list.
+     */
+    public function storeCustom(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'subjects' => ['required', 'array', 'min:1'],
+            'subjects.*.name' => ['required', 'string', 'max:255'],
+            'subjects.*.topics' => ['array'],
+            'subjects.*.topics.*' => ['string', 'max:1000'],
+        ]);
+
+        $user = $this->currentUser($request);
+
+        $course = DB::transaction(function () use ($data, $user) {
+            $course = Course::create([
+                'user_id' => $user->id,
+                'name' => $data['name'],
+                'orgao' => null,
+                'slug' => $this->uniqueCourseSlug($data['name']),
+                'description' => null,
+                'exam_board' => null,
+                'is_active' => true,
+            ]);
+
+            $subjectIndex = 0;
+            foreach ($data['subjects'] as $subjectData) {
+                $subjectName = trim($subjectData['name']);
+                if ($subjectName === '') {
+                    continue;
+                }
+
+                $subject = Subject::create([
+                    'course_id' => $course->id,
+                    'name' => $subjectName,
+                    'slug' => $this->uniqueSubjectSlug($course->id, $subjectName),
+                    'weight' => 1,
+                    'difficulty' => 3,
+                    'color' => self::PASTEL_COLORS[$subjectIndex % count(self::PASTEL_COLORS)],
+                ]);
+                $subjectIndex++;
+
+                $topics = collect($subjectData['topics'] ?? [])
+                    ->map(fn ($t) => trim($t))
+                    ->filter(fn ($t) => $t !== '')
+                    ->values();
+
+                foreach ($topics as $topicIndex => $topicName) {
+                    Topic::create([
+                        'subject_id' => $subject->id,
+                        'parent_id' => null,
+                        'name' => $topicName,
+                        'order' => $topicIndex,
+                        'estimated_minutes' => 30,
+                    ]);
+                }
+            }
+
+            return $course;
+        });
+
+        return redirect()->route('onboarding', ['course' => $course->id]);
+    }
+
+    /**
+     * Unique-ify a course slug against the global unique index on
+     * courses.slug — custom courses aren't shown by their slug anywhere, so a
+     * short random suffix is enough (no need to keep it human-readable).
+     */
+    private function uniqueCourseSlug(string $name): string
+    {
+        $base = Str::slug($name) ?: 'plano-personalizado';
+
+        do {
+            $slug = $base.'-'.Str::lower(Str::random(6));
+        } while (Course::where('slug', $slug)->exists());
+
+        return $slug;
+    }
+
+    /**
+     * Unique-ify a subject slug within its course (unique(['course_id','slug'])).
+     */
+    private function uniqueSubjectSlug(int $courseId, string $name): string
+    {
+        $base = Str::slug($name) ?: 'disciplina';
+        $slug = $base;
+        $suffix = 2;
+
+        while (Subject::where('course_id', $courseId)->where('slug', $slug)->exists()) {
+            $slug = $base.'-'.$suffix++;
+        }
+
+        return $slug;
     }
 
     /**

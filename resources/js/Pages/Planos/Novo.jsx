@@ -116,7 +116,7 @@ export default function PlanosNovo({ upcoming = [] }) {
 
                 {/* Plano personalizado */}
                 <a
-                    href="/onboarding"
+                    href="/onboarding?personalizado=1"
                     className="mt-4 flex items-center gap-4 rounded-2xl border-2 border-dashed border-brand-300 bg-brand-50/50 p-5 transition hover:border-brand-500 hover:bg-brand-50"
                 >
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-600 text-2xl font-bold leading-none text-white">

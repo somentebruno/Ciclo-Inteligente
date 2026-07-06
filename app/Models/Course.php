@@ -2,14 +2,20 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 /**
  * A preparatory course (e.g. "Concurso TRT", "ENEM 2026").
  * It is the top-level container of the study content tree.
+ *
+ * A course with a null `user_id` is a shared catalog entry (a seeded edital);
+ * one with a `user_id` is a private course a student built from scratch for a
+ * "plano personalizado" — see scopeCatalog().
  */
 class Course extends Model
 {
@@ -17,6 +23,7 @@ class Course extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'name',
         'orgao',
         'slug',
@@ -30,6 +37,22 @@ class Course extends Model
         return [
             'is_active' => 'boolean',
         ];
+    }
+
+    /**
+     * @return BelongsTo<User, Course>
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Shared catalog courses only — excludes students' private/custom courses.
+     */
+    public function scopeCatalog(Builder $query): Builder
+    {
+        return $query->whereNull('user_id');
     }
 
     /**

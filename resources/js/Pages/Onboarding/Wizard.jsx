@@ -9,6 +9,14 @@ const DIFFICULTIES = [
     { value: 'dificil', label: 'Difícil' },
 ];
 
+// O gerador do ciclo (CycleGeneratorService) trabalha com "conhecimento"
+// (1-5): quanto mais fácil a disciplina é pro aluno, mais ele já domina, e
+// menos peso ela recebe na rotação. "Importância" fica fixa em 3 (neutra)
+// pois este passo não pergunta isso — quem quiser afinar peso por
+// importância pode usar "Replanejar" depois, que usa os sliders reais.
+const DIFFICULTY_TO_KNOWLEDGE = { facil: 4, medio: 3, dificil: 2 };
+const DEFAULT_IMPORTANCE = 3;
+
 const FORMATS = [
     { value: 'pdf', label: 'PDF' },
     { value: 'video', label: 'Videoaula' },
@@ -95,9 +103,91 @@ function Pill({ selected, children, onClick }) {
     );
 }
 
+/* --- Passo 1 (modo personalizado): monta disciplinas/tópicos do zero ---- */
+function CustomPlanForm({ name, onNameChange, subjects, onSubjectsChange }) {
+    const addSubject = () =>
+        onSubjectsChange([...subjects, { key: crypto.randomUUID(), name: '', topicsText: '' }]);
+
+    const removeSubject = (key) => onSubjectsChange(subjects.filter((s) => s.key !== key));
+
+    const updateSubject = (key, patch) =>
+        onSubjectsChange(subjects.map((s) => (s.key === key ? { ...s, ...patch } : s)));
+
+    return (
+        <section>
+            <h2 className="text-lg font-semibold text-slate-900">Crie seu plano personalizado</h2>
+            <p className="mt-1 text-sm text-slate-500">
+                Sem edital cadastrado? Sem problema — dê um nome ao plano e cadastre as disciplinas
+                (e os tópicos de cada uma, se quiser tarefas automáticas).
+            </p>
+
+            <div className="mt-5">
+                <label className="block text-sm font-medium text-slate-700">Nome do plano</label>
+                <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => onNameChange(e.target.value)}
+                    placeholder="Ex.: Meu concurso"
+                    className="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-brand-500 focus:ring-brand-500"
+                />
+            </div>
+
+            <div className="mt-5 space-y-4">
+                {subjects.map((s, i) => (
+                    <div key={s.key} className="rounded-xl border border-slate-200 p-4">
+                        <div className="flex items-center gap-2">
+                            <input
+                                type="text"
+                                value={s.name}
+                                onChange={(e) => updateSubject(s.key, { name: e.target.value })}
+                                placeholder={`Disciplina ${i + 1}`}
+                                className="flex-1 rounded-lg border-slate-300 text-sm font-medium focus:border-brand-500 focus:ring-brand-500"
+                            />
+                            {subjects.length > 1 && (
+                                <button
+                                    type="button"
+                                    onClick={() => removeSubject(s.key)}
+                                    aria-label="Remover disciplina"
+                                    className="rounded-lg px-2 py-1 text-sm text-slate-400 transition hover:bg-red-50 hover:text-red-600"
+                                >
+                                    ×
+                                </button>
+                            )}
+                        </div>
+                        <label className="mt-3 block text-xs font-medium text-slate-500">
+                            Tópicos (um por linha, opcional)
+                        </label>
+                        <textarea
+                            value={s.topicsText}
+                            onChange={(e) => updateSubject(s.key, { topicsText: e.target.value })}
+                            rows={3}
+                            placeholder={'Ex.:\nCrase\nConcordância verbal'}
+                            className="mt-1 w-full rounded-lg border-slate-300 text-sm focus:border-brand-500 focus:ring-brand-500"
+                        />
+                    </div>
+                ))}
+            </div>
+
+            <button
+                type="button"
+                onClick={addSubject}
+                className="mt-3 rounded-lg border border-dashed border-brand-300 px-4 py-2 text-sm font-medium text-brand-700 transition hover:border-brand-500 hover:bg-brand-50"
+            >
+                + Adicionar disciplina
+            </button>
+        </section>
+    );
+}
+
 /* --- Wizard ------------------------------------------------------------- */
-export default function Wizard({ courses = [], preselectedCourseId = null, plannedCourseIds = [] }) {
+export default function Wizard({
+    courses = [],
+    preselectedCourseId = null,
+    plannedCourseIds = [],
+    startPersonalizado = false,
+}) {
     const [step, setStep] = useState(1);
+    const [mode, setMode] = useState(startPersonalizado ? 'personalizado' : 'existente');
     const [courseId, setCourseId] = useState(preselectedCourseId ?? null);
     const [pace, setPace] = useState(null); // número (por dia) | 'custom'
     const [customWeekly, setCustomWeekly] = useState(7);
@@ -106,8 +196,27 @@ export default function Wizard({ courses = [], preselectedCourseId = null, plann
     const [processing, setProcessing] = useState(false);
     const [errors, setErrors] = useState({});
 
+    // Formulário do plano personalizado (Passo 1, modo alternativo).
+    const [customName, setCustomName] = useState('');
+    const [customSubjects, setCustomSubjects] = useState([
+        { key: crypto.randomUUID(), name: '', topicsText: '' },
+    ]);
+    const [customSubmitting, setCustomSubmitting] = useState(false);
+
     // Courses the student already has a plan for (one plan per cargo).
     const isPlanned = (id) => plannedCourseIds.includes(id);
+
+    // Sempre que o servidor devolver um curso pré-selecionado (seleção normal
+    // via query string, ou o redirect após criar um plano personalizado),
+    // sincroniza o estado local e volta pro modo "existente" — o curso já
+    // aparece na lista, selecionado, e o rodapé padrão assume a navegação.
+    useEffect(() => {
+        if (preselectedCourseId) {
+            setCourseId(preselectedCourseId);
+            setMode('existente');
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [preselectedCourseId]);
 
     const course = useMemo(() => courses.find((c) => c.id === courseId) || null, [courses, courseId]);
     const subjects = course?.subjects ?? [];
@@ -132,7 +241,6 @@ export default function Wizard({ courses = [], preselectedCourseId = null, plann
             : pace
               ? (PACES.find((p) => p.daily === pace)?.weekly ?? 0)
               : 0;
-    const dailyTasks = pace === 'custom' ? null : pace;
     const weeklyHours = weeklyTasks * 1.5;
     const barPct = Math.min(100, Math.round((weeklyHours / MAX_WEEKLY_HOURS) * 100));
 
@@ -157,6 +265,35 @@ export default function Wizard({ courses = [], preselectedCourseId = null, plann
     const next = () => setStep((s) => Math.min(STEPS.length, s + 1));
     const back = () => setStep((s) => Math.max(1, s - 1));
 
+    const canSubmitCustomPlan =
+        customName.trim() !== '' && customSubjects.some((s) => s.name.trim() !== '');
+
+    const submitCustomPlan = () => {
+        setCustomSubmitting(true);
+        setErrors({});
+        router.post(
+            '/onboarding/custom',
+            {
+                name: customName,
+                subjects: customSubjects
+                    .map((s) => ({
+                        name: s.name.trim(),
+                        topics: s.topicsText
+                            .split('\n')
+                            .map((t) => t.trim())
+                            .filter(Boolean),
+                    }))
+                    .filter((s) => s.name !== ''),
+            },
+            {
+                preserveScroll: true,
+                onSuccess: () => next(),
+                onError: (e) => setErrors(e),
+                onFinish: () => setCustomSubmitting(false),
+            },
+        );
+    };
+
     const submit = () => {
         setProcessing(true);
         setErrors({});
@@ -164,12 +301,11 @@ export default function Wizard({ courses = [], preselectedCourseId = null, plann
             '/onboarding',
             {
                 course_id: courseId,
-                daily_tasks: dailyTasks,
-                weekly_tasks: weeklyTasks,
+                weekly_hours: Math.max(1, Math.round(weeklyHours)),
                 subjects: subjects.map((s) => ({
                     subject_id: s.id,
-                    difficulty: config[s.id]?.difficulty ?? 'medio',
-                    format: config[s.id]?.format ?? 'pdf',
+                    importance: DEFAULT_IMPORTANCE,
+                    knowledge: DIFFICULTY_TO_KNOWLEDGE[config[s.id]?.difficulty ?? 'medio'],
                 })),
                 studied_topics: studied,
             },
@@ -205,76 +341,99 @@ export default function Wizard({ courses = [], preselectedCourseId = null, plann
                     <div className="px-6 py-6">
                         {/* ---------------- Passo 1: Concurso ---------------- */}
                         {step === 1 && (
-                            <section>
-                                <h2 className="text-lg font-semibold text-slate-900">
-                                    Qual concurso você está estudando?
-                                </h2>
-                                <p className="mt-1 text-sm text-slate-500">
-                                    Selecione o concurso para montarmos seu plano.
-                                </p>
-                                <div className="mt-5 space-y-3">
-                                    {courses.length === 0 && (
-                                        <p className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
-                                            Nenhum concurso disponível. Rode o seeder do banco.
+                            <div>
+                                <div className="mb-5 flex flex-wrap gap-2">
+                                    <Pill selected={mode === 'existente'} onClick={() => setMode('existente')}>
+                                        Escolher concurso existente
+                                    </Pill>
+                                    <Pill
+                                        selected={mode === 'personalizado'}
+                                        onClick={() => setMode('personalizado')}
+                                    >
+                                        Criar plano personalizado
+                                    </Pill>
+                                </div>
+
+                                {mode === 'personalizado' ? (
+                                    <CustomPlanForm
+                                        name={customName}
+                                        onNameChange={setCustomName}
+                                        subjects={customSubjects}
+                                        onSubjectsChange={setCustomSubjects}
+                                    />
+                                ) : (
+                                    <section>
+                                        <h2 className="text-lg font-semibold text-slate-900">
+                                            Qual concurso você está estudando?
+                                        </h2>
+                                        <p className="mt-1 text-sm text-slate-500">
+                                            Selecione o concurso para montarmos seu plano.
                                         </p>
-                                    )}
-                                    {courses.map((c) => {
-                                        const planned = isPlanned(c.id);
-                                        return (
-                                            <button
-                                                key={c.id}
-                                                type="button"
-                                                disabled={planned}
-                                                onClick={() => setCourseId(c.id)}
-                                                className={
-                                                    'flex w-full items-center justify-between rounded-xl border p-4 text-left transition ' +
-                                                    (planned
-                                                        ? 'cursor-not-allowed border-slate-200 bg-slate-50 opacity-70'
-                                                        : courseId === c.id
-                                                          ? 'border-brand-600 ring-1 ring-brand-600'
-                                                          : 'border-slate-200 hover:border-brand-300')
-                                                }
-                                            >
-                                                <div>
-                                                    <p className="font-medium text-slate-900">
-                                                        {c.label ?? c.name}
-                                                    </p>
-                                                    <p className="text-sm text-slate-500">
-                                                        {c.orgao ?? 'Órgão não informado'} ·{' '}
-                                                        {c.subjects.length} disciplinas
-                                                    </p>
-                                                </div>
-                                                {planned ? (
-                                                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
-                                                        Plano já criado
-                                                    </span>
-                                                ) : (
-                                                    <span
+                                        <div className="mt-5 space-y-3">
+                                            {courses.length === 0 && (
+                                                <p className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
+                                                    Nenhum concurso disponível. Rode o seeder do banco.
+                                                </p>
+                                            )}
+                                            {courses.map((c) => {
+                                                const planned = isPlanned(c.id);
+                                                return (
+                                                    <button
+                                                        key={c.id}
+                                                        type="button"
+                                                        disabled={planned}
+                                                        onClick={() => setCourseId(c.id)}
                                                         className={
-                                                            'flex h-5 w-5 items-center justify-center rounded-full border ' +
-                                                            (courseId === c.id
-                                                                ? 'border-brand-600 bg-brand-600 text-white'
-                                                                : 'border-slate-300')
+                                                            'flex w-full items-center justify-between rounded-xl border p-4 text-left transition ' +
+                                                            (planned
+                                                                ? 'cursor-not-allowed border-slate-200 bg-slate-50 opacity-70'
+                                                                : courseId === c.id
+                                                                  ? 'border-brand-600 ring-1 ring-brand-600'
+                                                                  : 'border-slate-200 hover:border-brand-300')
                                                         }
                                                     >
-                                                        {courseId === c.id ? '✓' : ''}
-                                                    </span>
-                                                )}
-                                            </button>
-                                        );
-                                    })}
+                                                        <div>
+                                                            <p className="font-medium text-slate-900">
+                                                                {c.label ?? c.name}
+                                                            </p>
+                                                            <p className="text-sm text-slate-500">
+                                                                {c.orgao ?? 'Órgão não informado'} ·{' '}
+                                                                {c.subjects.length} disciplinas
+                                                            </p>
+                                                        </div>
+                                                        {planned ? (
+                                                            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
+                                                                Plano já criado
+                                                            </span>
+                                                        ) : (
+                                                            <span
+                                                                className={
+                                                                    'flex h-5 w-5 items-center justify-center rounded-full border ' +
+                                                                    (courseId === c.id
+                                                                        ? 'border-brand-600 bg-brand-600 text-white'
+                                                                        : 'border-slate-300')
+                                                                }
+                                                            >
+                                                                {courseId === c.id ? '✓' : ''}
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
 
-                                    {courseId && isPlanned(courseId) && (
-                                        <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                                            Você já tem um plano para este cargo. Apague-o em{' '}
-                                            <Link href="/planos" className="font-medium underline">
-                                                Planos
-                                            </Link>{' '}
-                                            para criar outro.
-                                        </p>
-                                    )}
-                                </div>
-                            </section>
+                                            {courseId && isPlanned(courseId) && (
+                                                <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                                                    Você já tem um plano para este cargo. Apague-o em{' '}
+                                                    <Link href="/planos" className="font-medium underline">
+                                                        Planos
+                                                    </Link>{' '}
+                                                    para criar outro.
+                                                </p>
+                                            )}
+                                        </div>
+                                    </section>
+                                )}
+                            </div>
                         )}
 
                         {/* ---------------- Passo 2: Disponibilidade ---------------- */}
@@ -577,7 +736,16 @@ export default function Wizard({ courses = [], preselectedCourseId = null, plann
                             Passo {step} de {STEPS.length}
                         </span>
 
-                        {step < STEPS.length ? (
+                        {step === 1 && mode === 'personalizado' ? (
+                            <button
+                                type="button"
+                                onClick={submitCustomPlan}
+                                disabled={!canSubmitCustomPlan || customSubmitting}
+                                className="rounded-lg bg-brand-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition enabled:hover:bg-brand-700 disabled:opacity-40"
+                            >
+                                {customSubmitting ? 'Criando…' : 'Criar disciplinas e continuar →'}
+                            </button>
+                        ) : step < STEPS.length ? (
                             <button
                                 type="button"
                                 onClick={next}
