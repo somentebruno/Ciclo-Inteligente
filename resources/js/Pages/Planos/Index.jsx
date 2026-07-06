@@ -248,11 +248,9 @@ export default function PlanosIndex({ catalog = [], myPlans = [] }) {
             {/* Seus planos (um por cargo) */}
             {myPlans.length > 0 && <MyPlans plans={myPlans} />}
 
-            {/* Criar Novo Plano — abre em nova aba */}
-            <a
+            {/* Criar Novo Plano */}
+            <Link
                 href="/planos/novo"
-                target="_blank"
-                rel="noopener noreferrer"
                 className="flex items-center gap-4 rounded-xl border-2 border-dashed border-brand-300 bg-brand-50/50 p-5 transition hover:border-brand-500 hover:bg-brand-50"
             >
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-600 text-2xl font-bold leading-none text-white">
@@ -264,7 +262,7 @@ export default function PlanosIndex({ catalog = [], myPlans = [] }) {
                         Crie um novo plano para adicionar disciplinas a partir ou não de um edital.
                     </p>
                 </div>
-            </a>
+            </Link>
 
             {catalog.length === 0 ? (
                 <p className="text-center text-sm text-slate-400">

@@ -77,7 +77,7 @@ class PlanController extends Controller
     }
 
     /**
-     * "Criar novo plano" page (opened in a new tab): search + personalized
+     * "Criar novo plano" page: search + personalized
      * plan + catalog of upcoming concursos (empty for now).
      */
     public function create(): Response
