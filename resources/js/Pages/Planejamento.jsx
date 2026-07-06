@@ -1900,6 +1900,12 @@ export default function Planejamento({ cycle, nextTaskId, course_subjects: cours
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [editMode, cycle?.sequence]);
 
+    // Diferença (em minutos) entre o total de blocos do ciclo e o que as
+    // horas/semana configuradas implicam — surge quando "Editar Ciclo" é
+    // usado para ajustar blocos manualmente, desalinhando do que "Replanejar"
+    // geraria a partir da configuração.
+    const cycleTotalDrift = cycle ? cycle.planned_minutes - (cycle.weekly_hours || 0) * 60 : 0;
+
     const startDrag = (id) => setDragId(id);
     const dragOver = (e, overId) => {
         e.preventDefault();
@@ -2108,9 +2114,23 @@ export default function Planejamento({ cycle, nextTaskId, course_subjects: cours
             {/* Sequência dos estudos — modo edição (largura total) */}
             {editMode && (
                 <div className="mt-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                        Sequência dos estudos
-                    </p>
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                        <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Sequência dos estudos
+                        </p>
+                        {!!cycle.weekly_hours && (
+                            <p
+                                className={`text-xs font-medium ${
+                                    cycleTotalDrift === 0 ? 'text-slate-500' : 'text-amber-600'
+                                }`}
+                            >
+                                Total do ciclo: {fmt(cycle.planned_minutes)} · Configurado (horas/semana):{' '}
+                                {fmt(cycle.weekly_hours * 60)}
+                                {cycleTotalDrift !== 0 &&
+                                    ` — diferença de ${fmt(Math.abs(cycleTotalDrift))}. Use "Replanejar" para recalcular automaticamente.`}
+                            </p>
+                        )}
+                    </div>
                     <ol className="mt-3 space-y-2">
                         {orderedSequence.map((s) => (
                             <EditableSubjectRow
