@@ -75,20 +75,40 @@ const CloseIcon = () => (
 );
 
 /* --- Sidebar navigation ------------------------------------------------- */
-const navigation = [
-    { name: 'Home', href: '/home', icon: HomeIcon },
-    { name: 'Metas do dia', href: '/metas-do-dia', icon: TargetIcon },
-    { name: 'Tarefas', href: '/tarefas', icon: TasksIcon },
-    { name: 'Revisões', href: '/revisoes', icon: ReviewIcon },
-    { name: 'Meu plano semanal', href: '/plano-semanal', icon: CalendarIcon },
-    { name: 'Planejamento', href: '/planejamento', icon: CycleIcon },
-    { name: 'Disciplinas', href: '/disciplinas', icon: GridIcon },
-    { name: 'Planos', href: '/planos', icon: PlansIcon },
-    { name: 'Desempenho', href: '/desempenho', icon: ChartIcon },
-    { name: 'Edital Verticalizado', href: '/edital-verticalizado', icon: BookIcon },
-];
+// "Disciplinas" sempre aponta para o plano atualmente selecionado (o mesmo
+// `currentPlan` do seletor no topo) — muda de destino conforme o plano ativo
+// muda, em vez de levar a uma lista genérica desvinculada do plano.
+function buildNavigation(currentPlan) {
+    return [
+        { name: 'Home', href: '/home', icon: HomeIcon },
+        { name: 'Metas do dia', href: '/metas-do-dia', icon: TargetIcon },
+        { name: 'Tarefas', href: '/tarefas', icon: TasksIcon },
+        { name: 'Revisões', href: '/revisoes', icon: ReviewIcon },
+        { name: 'Meu plano semanal', href: '/plano-semanal', icon: CalendarIcon },
+        { name: 'Planejamento', href: '/planejamento', icon: CycleIcon },
+        {
+            name: 'Disciplinas',
+            href: currentPlan ? `/planos/${currentPlan.id}` : '/planos',
+            icon: GridIcon,
+        },
+        { name: 'Planos', href: '/planos', icon: PlansIcon },
+        { name: 'Desempenho', href: '/desempenho', icon: ChartIcon },
+        { name: 'Edital Verticalizado', href: '/edital-verticalizado', icon: BookIcon },
+    ];
+}
 
-function Sidebar({ currentUrl, onNavigate }) {
+function Sidebar({ currentUrl, currentPlan, onNavigate }) {
+    const navigation = buildNavigation(currentPlan);
+
+    // Quando mais de um item aponta para o mesmo caminho (ex: "Disciplinas"
+    // e "Planos" ambos sob /planos/*), só o mais específico fica destacado.
+    const matches = navigation.filter(
+        (item) => currentUrl === item.href || currentUrl.startsWith(item.href + '/'),
+    );
+    const activeHref = matches.length
+        ? matches.reduce((a, b) => (b.href.length > a.href.length ? b : a)).href
+        : null;
+
     return (
         <div className="flex h-full flex-col bg-slate-900 text-slate-300">
             <div className="flex h-16 items-center gap-2 px-6">
@@ -100,12 +120,11 @@ function Sidebar({ currentUrl, onNavigate }) {
 
             <nav className="flex-1 space-y-1 px-3 py-4">
                 {navigation.map((item) => {
-                    const active =
-                        currentUrl === item.href || currentUrl.startsWith(item.href + '/');
+                    const active = item.href === activeHref;
                     const Icon = item.icon;
                     return (
                         <Link
-                            key={item.href}
+                            key={item.name}
                             href={item.href}
                             onClick={onNavigate}
                             className={
@@ -180,7 +199,7 @@ export default function AppLayout({ title, children }) {
 
             {/* Fixed sidebar (desktop) */}
             <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 lg:block">
-                <Sidebar currentUrl={url} />
+                <Sidebar currentUrl={url} currentPlan={currentPlan} />
             </aside>
 
             {/* Mobile off-canvas sidebar */}
@@ -191,7 +210,11 @@ export default function AppLayout({ title, children }) {
                         onClick={() => setMobileOpen(false)}
                     />
                     <aside className="absolute inset-y-0 left-0 w-64">
-                        <Sidebar currentUrl={url} onNavigate={() => setMobileOpen(false)} />
+                        <Sidebar
+                            currentUrl={url}
+                            currentPlan={currentPlan}
+                            onNavigate={() => setMobileOpen(false)}
+                        />
                     </aside>
                 </div>
             )}
