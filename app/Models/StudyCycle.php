@@ -21,6 +21,7 @@ class StudyCycle extends Model
         'user_id',
         'course_id',
         'name',
+        'observacoes',
         'weekly_hours',
         'study_days',
         'min_session_minutes',

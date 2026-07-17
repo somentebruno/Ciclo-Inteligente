@@ -56,12 +56,20 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/planos', [PlanController::class, 'index'])->name('planos');
     Route::get('/planos/novo', [PlanController::class, 'create'])->name('planos.create');
+    Route::get('/planos/{cycle}', [PlanController::class, 'show'])->name('planos.show');
+    Route::patch('/planos/{cycle}', [PlanController::class, 'update'])->name('planos.update');
     Route::post('/planos/{cycle}/ativar', [PlanController::class, 'activate'])->name('planos.activate');
+    Route::post('/planos/{cycle}/arquivar', [PlanController::class, 'archive'])->name('planos.archive');
+    Route::post('/planos/{cycle}/disciplinas', [PlanController::class, 'storeSubject'])->name('planos.disciplinas.store');
     Route::delete('/planos/{cycle}', [PlanController::class, 'destroy'])->name('planos.destroy');
 
     Route::get('/desempenho', [DesempenhoController::class, 'index'])->name('desempenho');
 
     Route::get('/disciplinas', [DisciplinasController::class, 'index'])->name('disciplinas');
+    Route::get('/disciplinas/{subject}', [DisciplinasController::class, 'show'])->name('disciplinas.show');
+    Route::patch('/disciplinas/{subject}', [DisciplinasController::class, 'update'])->name('disciplinas.update');
+    Route::delete('/disciplinas/{subject}', [DisciplinasController::class, 'destroy'])->name('disciplinas.destroy');
+    Route::post('/disciplinas/{subject}/topicos/{topic}/alternar', [DisciplinasController::class, 'toggleTopic'])->name('disciplinas.topicos.alternar');
 
     Route::get('/edital-verticalizado', [EditalVerticalizadoController::class, 'index'])->name('edital-verticalizado');
     Route::post('/edital-verticalizado/topicos/{topic}/alternar', [EditalVerticalizadoController::class, 'toggleTopic'])->name('edital-verticalizado.topicos.alternar');

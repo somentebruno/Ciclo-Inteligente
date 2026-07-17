@@ -3,94 +3,130 @@ import { Link, router, usePage } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import CriarPlanejamentoModal from '@/Components/CriarPlanejamentoModal';
 
-/* --- Seus planos: ativar / apagar cada plano ---------------------------- */
-function MyPlans({ plans }) {
-    const [confirmId, setConfirmId] = useState(null);
+/* --- Seus planos: card por plano, com ativar / apagar ------------------- */
+function PlanSummaryRow({ label, value }) {
+    return (
+        <div className="flex items-center justify-between gap-2">
+            <dt className="text-slate-500">{label}</dt>
+            <dd className="font-medium text-slate-800">{value}</dd>
+        </div>
+    );
+}
+
+function PlanSummaryCard({ plan, onActivate, onDelete }) {
+    const [confirming, setConfirming] = useState(false);
     const [busy, setBusy] = useState(false);
 
-    const activate = (id) =>
-        router.post(`/planos/${id}/ativar`, {}, { preserveScroll: true });
-
-    const remove = (id) => {
+    const remove = () => {
         setBusy(true);
-        router.delete(`/planos/${id}`, {
-            preserveScroll: true,
-            onFinish: () => {
-                setBusy(false);
-                setConfirmId(null);
-            },
+        onDelete(plan.id, () => {
+            setBusy(false);
+            setConfirming(false);
         });
     };
 
     return (
-        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div
+            className={
+                'rounded-xl border bg-white p-5 shadow-sm ' +
+                (plan.is_active
+                    ? 'border-brand-300 ring-1 ring-brand-200'
+                    : 'border-slate-200')
+            }
+        >
+            <div className="flex items-start justify-between gap-2">
+                <Link
+                    href={`/planos/${plan.id}`}
+                    className="font-semibold text-slate-900 transition hover:text-brand-700 hover:underline"
+                >
+                    {plan.name}
+                </Link>
+                <div className="flex shrink-0 items-center gap-1.5">
+                    {plan.is_archived && (
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">
+                            Arquivado
+                        </span>
+                    )}
+                    {plan.is_active && (
+                        <span className="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-700">
+                            Ativo
+                        </span>
+                    )}
+                </div>
+            </div>
+
+            <dl className="mt-4 space-y-1.5 text-sm">
+                <PlanSummaryRow label="Cargo" value={plan.cargo_name ?? '—'} />
+                <PlanSummaryRow label="Disciplinas" value={plan.subjects_count} />
+                <PlanSummaryRow label="Tópicos" value={plan.topics_count} />
+                <PlanSummaryRow label="Criado em" value={plan.created_at} />
+            </dl>
+
+            {confirming ? (
+                <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3">
+                    <p className="text-sm font-medium text-red-800">
+                        Tem certeza? As tarefas e revisões deste plano serão removidas.
+                    </p>
+                    <div className="mt-3 flex gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setConfirming(false)}
+                            disabled={busy}
+                            className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-white"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            type="button"
+                            onClick={remove}
+                            disabled={busy}
+                            className="flex-1 rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-60"
+                        >
+                            {busy ? 'Apagando…' : 'Sim, apagar'}
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div className="mt-4 flex items-center gap-2">
+                    {!plan.is_active && (
+                        <button
+                            type="button"
+                            onClick={() => onActivate(plan.id)}
+                            className="flex-1 rounded-lg px-3 py-1.5 text-sm font-medium text-brand-700 transition hover:bg-brand-50"
+                        >
+                            Tornar ativo
+                        </button>
+                    )}
+                    <button
+                        type="button"
+                        onClick={() => setConfirming(true)}
+                        className="flex-1 rounded-lg border border-red-200 px-3 py-1.5 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                    >
+                        Apagar
+                    </button>
+                </div>
+            )}
+        </div>
+    );
+}
+
+function MyPlans({ plans }) {
+    const activate = (id) =>
+        router.post(`/planos/${id}/ativar`, {}, { preserveScroll: true });
+
+    const remove = (id, onFinish) =>
+        router.delete(`/planos/${id}`, { preserveScroll: true, onFinish });
+
+    return (
+        <div>
             <p className="text-xs font-medium uppercase tracking-wide text-slate-400">
                 Seus planos
             </p>
-            <ul className="mt-3 space-y-2">
+            <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {plans.map((p) => (
-                    <li key={p.id} className="rounded-lg border border-slate-200 px-4 py-3">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div className="flex items-center gap-2">
-                                <span className="font-medium text-slate-800">{p.name}</span>
-                                {p.is_active && (
-                                    <span className="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-700">
-                                        Ativo
-                                    </span>
-                                )}
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                {!p.is_active && (
-                                    <button
-                                        type="button"
-                                        onClick={() => activate(p.id)}
-                                        className="rounded-lg px-3 py-1.5 text-sm font-medium text-brand-700 transition hover:bg-brand-50"
-                                    >
-                                        Tornar ativo
-                                    </button>
-                                )}
-
-                                {confirmId === p.id ? (
-                                    <>
-                                        <button
-                                            type="button"
-                                            onClick={() => setConfirmId(null)}
-                                            disabled={busy}
-                                            className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-500 transition hover:bg-slate-100"
-                                        >
-                                            Cancelar
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => remove(p.id)}
-                                            disabled={busy}
-                                            className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-60"
-                                        >
-                                            {busy ? 'Apagando…' : 'Sim, apagar'}
-                                        </button>
-                                    </>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        onClick={() => setConfirmId(p.id)}
-                                        className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-semibold text-red-600 transition hover:bg-red-50"
-                                    >
-                                        Apagar
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-
-                        {confirmId === p.id && (
-                            <p className="mt-2 text-sm text-red-700">
-                                As tarefas e revisões deste plano serão removidas. Esta ação não
-                                pode ser desfeita.
-                            </p>
-                        )}
-                    </li>
+                    <PlanSummaryCard key={p.id} plan={p} onActivate={activate} onDelete={remove} />
                 ))}
-            </ul>
+            </div>
         </div>
     );
 }
