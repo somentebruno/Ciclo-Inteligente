@@ -73,6 +73,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/edital-verticalizado', [EditalVerticalizadoController::class, 'index'])->name('edital-verticalizado');
     Route::post('/edital-verticalizado/topicos/{topic}/alternar', [EditalVerticalizadoController::class, 'toggleTopic'])->name('edital-verticalizado.topicos.alternar');
+    Route::patch('/edital-verticalizado/topicos/{topic}/links', [EditalVerticalizadoController::class, 'updateLinks'])->name('edital-verticalizado.topicos.links.update');
 
     // Perfil (Breeze)
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

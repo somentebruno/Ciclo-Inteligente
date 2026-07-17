@@ -67,6 +67,16 @@ class Topic extends Model
     }
 
     /**
+     * Study-material links attached to this topic.
+     *
+     * @return HasMany<TopicLink>
+     */
+    public function links(): HasMany
+    {
+        return $this->hasMany(TopicLink::class)->orderBy('order');
+    }
+
+    /**
      * Studyable (leaf) topics: no subtopics of their own. Topics with
      * subtopics are grouping headers, excluded from the task queue, the
      * study-log picker and the onboarding checklist.
