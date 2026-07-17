@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { Link, router } from '@inertiajs/react';
 import AppLayout from '@/Layouts/AppLayout';
 import DisciplinaCard from '@/Components/DisciplinaCard';
+import ModalShell from '@/Components/ModalShell';
+import DeleteConfirmModal from '@/Components/DeleteConfirmModal';
+import EditDisciplinaModal from '@/Components/EditDisciplinaModal';
 
 const SUBJECT_COLORS = [
     '#fecaca', '#fed7aa', '#fef08a', '#d9f99d', '#bbf7d0',
@@ -66,16 +69,6 @@ const inputClass =
     'mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 ' +
     'focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500';
 const labelClass = 'block text-xs font-medium uppercase tracking-wide text-slate-400';
-
-/* --- Modal: fundo + moldura padrão reaproveitado pelos 3 diálogos -------- */
-function ModalShell({ onClose, busy, maxWidth = 'max-w-md', children }) {
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-900/50" onClick={() => !busy && onClose()} />
-            <div className={`relative z-10 w-full ${maxWidth} rounded-2xl bg-white p-6 shadow-2xl`}>{children}</div>
-        </div>
-    );
-}
 
 function EditPlanModal({ plan, onClose }) {
     const [name, setName] = useState(plan.name);
@@ -201,185 +194,6 @@ function NovaDisciplinaModal({ planId, onClose }) {
                 >
                     {saving ? 'Criando…' : 'Criar'}
                 </button>
-            </div>
-        </ModalShell>
-    );
-}
-
-function DeleteConfirmModal({ url, title, message, onClose }) {
-    const [busy, setBusy] = useState(false);
-
-    const confirm = () => {
-        setBusy(true);
-        router.delete(url, { preserveScroll: true, onFinish: () => setBusy(false) });
-    };
-
-    return (
-        <ModalShell onClose={onClose} busy={busy} maxWidth="max-w-sm">
-            <h2 className="text-lg font-bold text-slate-800">{title}</h2>
-            <p className="mt-2 text-sm text-slate-600">{message}</p>
-            <div className="mt-5 flex justify-end gap-2">
-                <button
-                    type="button"
-                    onClick={onClose}
-                    disabled={busy}
-                    className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
-                >
-                    Cancelar
-                </button>
-                <button
-                    type="button"
-                    onClick={confirm}
-                    disabled={busy}
-                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 disabled:opacity-60"
-                >
-                    {busy ? 'Apagando…' : 'Sim, apagar'}
-                </button>
-            </div>
-        </ModalShell>
-    );
-}
-
-function EditDisciplinaModal({ subject, onClose, onDelete }) {
-    const [name, setName] = useState(subject.name);
-    const [color, setColor] = useState(subject.color);
-    const [topics, setTopics] = useState(() =>
-        subject.topics.map((t) => ({ key: `id-${t.id}`, id: t.id, name: t.name })),
-    );
-    const [newTopicName, setNewTopicName] = useState('');
-    const [saving, setSaving] = useState(false);
-
-    const addTopic = () => {
-        const trimmed = newTopicName.trim();
-        if (!trimmed) return;
-        setTopics((prev) => [...prev, { key: `new-${Date.now()}-${prev.length}`, id: null, name: trimmed }]);
-        setNewTopicName('');
-    };
-
-    const renameTopic = (key, value) =>
-        setTopics((prev) => prev.map((t) => (t.key === key ? { ...t, name: value } : t)));
-
-    const removeTopic = (key) => setTopics((prev) => prev.filter((t) => t.key !== key));
-
-    const submit = () => {
-        if (!name.trim()) return;
-        setSaving(true);
-        router.patch(
-            `/disciplinas/${subject.id}`,
-            {
-                name,
-                color,
-                topics: topics
-                    .map((t) => ({ id: t.id, name: t.name.trim() }))
-                    .filter((t) => t.name !== ''),
-            },
-            { preserveScroll: true, onSuccess: onClose, onFinish: () => setSaving(false) },
-        );
-    };
-
-    return (
-        <ModalShell onClose={onClose} busy={saving} maxWidth="max-w-lg">
-            <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-800">Editar disciplina</h2>
-                <button type="button" onClick={onClose} className="text-slate-400 transition hover:text-slate-600">
-                    <CloseXIcon />
-                </button>
-            </div>
-
-            <label className={`${labelClass} mt-5`}>Nome</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
-
-            <label className={`${labelClass} mt-4`}>Cor</label>
-            <div className="mt-2 flex flex-wrap gap-2">
-                {SUBJECT_COLORS.map((c) => (
-                    <button
-                        key={c}
-                        type="button"
-                        onClick={() => setColor(c)}
-                        aria-label={c}
-                        className={
-                            'h-7 w-7 rounded-full transition ' +
-                            (color === c ? 'ring-2 ring-brand-600 ring-offset-2' : '')
-                        }
-                        style={{ backgroundColor: c }}
-                    />
-                ))}
-            </div>
-
-            <label className={`${labelClass} mt-4`}>Tópicos</label>
-            <div className="mt-1.5 max-h-52 space-y-1.5 overflow-y-auto pr-1">
-                {topics.map((t) => (
-                    <div key={t.key} className="flex items-center gap-2">
-                        <input
-                            value={t.name}
-                            onChange={(e) => renameTopic(t.key, e.target.value)}
-                            className="flex-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-sm text-slate-800 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => removeTopic(t.key)}
-                            title="Remover tópico"
-                            className="shrink-0 rounded-lg p-1.5 text-slate-400 transition hover:bg-red-50 hover:text-red-600"
-                        >
-                            <TrashIcon />
-                        </button>
-                    </div>
-                ))}
-                {topics.length === 0 && (
-                    <p className="px-1 py-1 text-sm text-slate-400">Nenhum tópico cadastrado.</p>
-                )}
-            </div>
-
-            <div className="mt-2 flex items-center gap-2">
-                <input
-                    value={newTopicName}
-                    onChange={(e) => setNewTopicName(e.target.value)}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            addTopic();
-                        }
-                    }}
-                    placeholder="Novo tópico"
-                    className="flex-1 rounded-lg border border-dashed border-slate-300 px-2.5 py-1.5 text-sm text-slate-700 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
-                />
-                <button
-                    type="button"
-                    onClick={addTopic}
-                    disabled={!newTopicName.trim()}
-                    className="shrink-0 rounded-lg border border-brand-200 px-3 py-1.5 text-sm font-medium text-brand-700 transition hover:bg-brand-50 disabled:opacity-40"
-                >
-                    Adicionar
-                </button>
-            </div>
-
-            <div className="mt-6 flex items-center justify-between gap-2">
-                <button
-                    type="button"
-                    onClick={onDelete}
-                    disabled={saving}
-                    className="rounded-lg border border-red-200 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-50"
-                >
-                    Remover
-                </button>
-                <div className="flex gap-2">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        disabled={saving}
-                        className="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100"
-                    >
-                        Cancelar
-                    </button>
-                    <button
-                        type="button"
-                        onClick={submit}
-                        disabled={saving || !name.trim()}
-                        className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 disabled:opacity-60"
-                    >
-                        {saving ? 'Salvando…' : 'Salvar'}
-                    </button>
-                </div>
             </div>
         </ModalShell>
     );
